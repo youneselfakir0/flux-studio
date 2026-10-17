@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flux Studio v2 — Nodal AI Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/v2/editor.css">
+<link rel="stylesheet" href="/v2/vision.css"><link rel="stylesheet" href="/loras/palette.css">
+</head>
+<body class="safe">
+
+<div class="app" id="app">
+
+  <!-- ===================== TOP NAV ===================== -->
+  <nav class="topnav">
+    <div class="topnav-brand">
+      <div class="brand-mark"></div>
+      <span class="brand-name">Flux Studio <small>v2</small></span>
+    </div>
+
+    <div class="topnav-tabs">
+      <button class="topnav-tab active" data-view="workflow"><span>◈</span> Workflow</button>
+      <button class="topnav-tab" data-view="app"><span>◉</span> App</button>
+      <button class="topnav-tab" data-view="gallery"><span>▦</span> Gallery</button>
+      <button class="topnav-tab" data-view="models"><span>◫</span> Models</button>
+      <button class="topnav-tab" data-view="prompts"><span>✦</span> Prompts</button>
+      <button class="topnav-tab" data-view="canvas2d"><span>✎</span> Canvas</button>
+      <button class="topnav-tab" data-view="comfyui"><span>❖</span> ComfyUI</button>
+      <button class="topnav-tab" data-view="profil"><span>◍</span> Profil</button>
+    </div>
+
+    <div class="topnav-spacer"></div>
+
+    <div class="topnav-actions">
+      <div class="segmented" id="nsfwSeg" title="Niveau NSFW maximum">
+        <button data-lvl="1">None</button>
+        <button data-lvl="2">Soft</button>
+        <button data-lvl="3">Mature</button>
+        <button class="on" data-lvl="4">X</button>
+      </div>
+      <label class="switch" title="Flouter le contenu NSFW">
+        <input type="checkbox" id="safeToggle" checked>
+        <span class="track"></span>
+        <span>Safe</span>
+      </label>
+      <span class="badge" id="statBadge">—</span>
+      <div class="segmented" id="speedSeg" title="Vitesse de génération">
+        <button data-speed="fast">Rapide</button>
+        <button data-speed="balanced" class="on">Équilibré</button>
+        <button data-speed="quality">Qualité</button>
+      </div>
+      <button class="btn sm" id="validateGraphBtn" title="Valider le graphe sans le faire tourner (ne pollue pas la file ComfyUI)">✓ Valider</button>
+      <button class="btn sm" id="warmupBtn" title="Pré-charge le modèle choisi dans la VRAM (accélère la 1re génération)">🔥 Pré-charge</button>
+      <button class="btn sm" id="recentPromptsBtn" title="Prompts récents">↺ Récents</button>
+      <button class="btn sm" id="autoLoraBtn" title="Suggérer des LoRA selon le prompt actuel">✨ Auto-LoRA</button>
+      <button class="btn sm" id="freeMemoryBtn" title="Libérer la mémoire VRAM/RAM ComfyUI">🧹 Libérer</button>
+      <button class="btn primary sm" id="executeGraphBtn" title="Execute workflow (Ctrl+Enter)">▶ Run</button>
+    </div>
+  </nav>
+
+  <div id="recentPromptsDropdown" class="recent-dropdown" style="display:none"></div>
+  <div id="autoLoraDropdown" class="recent-dropdown" style="display:none"></div>
+  <div class="workspace" id="workspace">
+ 
+    <!-- ===================== APP VIEW (simple) ===================== -->
+    <section id="view-app" class="view">
+      <div class="view-content app-layout">
+        <div class="app-card">
+          <h1>Génération simple</h1>
+          <p class="app-sub">Pas de nœuds, pas de câblage. Choisis un modèle, décris, génère.</p>
+
+          <label>Modèle</label>
+          <select id="appModel">
+            <option value="sdxl-base">SDXL — Base (recommandé)</option>
+            <option value="sdxl-turbo">SDXL — Turbo (rapide, 4 étapes)</option>
+            <option value="flux2-klein">FLUX.2 Klein (4B, rapide)</option>
+            <option value="flux1-dev">FLUX.1 Dev (qualité, lent)</option>
+            <option value="sd15-base">SD 1.5 (léger)</option>
+          </select>
+
+          <label>Prompt (positif)</label>
+          <textarea id="appPrompt" rows="3" placeholder="a beautiful woman, portrait, soft light, 8k"></textarea>
+
+          <label>Prompt (négatif)</label>
+          <textarea id="appNeg" rows="2" placeholder="blurry, bad anatomy, watermark"></textarea>
+
+          <div class="app-row">
+            <div class="app-field">
+              <label>Largeur</label>
+              <select id="appW"><option>512</option><option selected>768</option><option>1024</option></select>
+            </div>
+            <div class="app-field">
+              <label>Hauteur</label>
+              <select id="appH"><option>512</option><option selected>768</option><option>1024</option></select>
+            </div>
+            <div class="app-field">
+              <label>Steps</label>
+              <input type="number" id="appSteps" value="24" min="1" max="60">
+            </div>
+            <div class="app-field">
+              <label>CFG</label>
+              <input type="number" id="appCfg" value="7" min="1" max="20" step="0.5">
+            </div>
+          </div>
+
+          <div class="app-row">
+            <div class="app-field" style="flex:2">
+              <label>Seed (laisser vide = aléatoire)</label>
+              <input type="number" id="appSeed" placeholder="aléatoire">
+            </div>
+            <div class="app-field">
+              <label>LoRA</label>
+              <select id="appLora"><option value="">Aucun</option></select>
+            </div>
+          </div>
+
+          <div class="app-actions">
+            <button class="btn primary" id="appGenerate">▶ Générer</button>
+            <button class="btn ghost" id="appDescribe">🖼 Depuis une image</button>
+          </div>
+
+          <div class="app-result" id="appResult" style="display:none;">
+            <div class="app-result-head">Résultat</div>
+            <div id="appResultImg"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== WORKFLOW VIEW ===================== -->
+    <section id="view-workflow" class="view active">
+      <aside class="panel-left">
+        <div class="panel-tabs">
+          <button class="ptab active" data-ptab="quick">⚡ Prêt à l'emploi</button>
+          <button class="ptab" data-ptab="lora">✦ Mots-clés</button>
+          <button class="ptab" data-ptab="nodes">◈ Nœuds</button>
+        </div>
+        <div class="ptab-panel active" id="quickPanel"></div>
+        <div class="ptab-panel" id="loraInvPanel"></div>
+        <div class="ptab-panel" id="palettePanel"></div>
+      </aside>
+      <div class="canvas-wrapper" id="canvasWrapper"></div>
+      <aside class="panel-right" id="inspectorPanel"></aside>
+    </section>
+
+    <!-- ===================== GALLERY VIEW ===================== -->
+    <section id="view-gallery" class="view">
+      <div class="view-content" id="galleryRoot"></div>
+    </section>
+
+    <!-- ===================== MODELS VIEW ===================== -->
+    <section id="view-models" class="view">
+      <div class="view-content" id="modelsRoot"></div>
+    </section>
+
+    <!-- ===================== PROMPTS VIEW (classic) ===================== -->
+    <section id="view-prompts" class="view">
+      <div class="view-content prompts-layout">
+        <aside class="prompts-rail">
+          <label class="rail-search">
+            <span>⌕</span>
+            <input id="railSearch" placeholder="Rechercher…">
+          </label>
+          <div class="nav-label">Bases</div>
+          <div class="base-chips" id="baseList"></div>
+          <div class="nav-label">Tags populaires</div>
+          <div class="tag-cloud" id="tagCloud"></div>
+        </aside>
+        <div class="prompts-main">
+          <div class="view-head">
+            <div>
+              <h1>Explorateur de prompts</h1>
+              <p>Prompts Civitai réels · femmes uniquement · NSFW jusqu'à X (XXX exclu).</p>
+            </div>
+            <div class="spacer"></div>
+          </div>
+          <div class="filters">
+            <select id="fBase"><option value="">Toutes les bases</option></select>
+            <select id="fType"><option value="">Tous types</option></select>
+            <select id="fTag"><option value="">Tous tags</option></select>
+            <span class="sep"></span>
+            <span class="chip on" data-men="only">♀ Femmes seulement</span>
+            <span class="chip" data-men="0">✕ Sans hommes</span>
+            <span class="chip" data-men="">Tout</span>
+          </div>
+          <div id="promptGrid" class="grid"></div>
+          <div id="promptMore" class="center mt"></div>
+        </div>
+        <aside class="prompts-right">
+          <h4>Historique</h4>
+          <div id="histList"></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===================== CANVAS 2D VIEW ===================== -->
+    <section id="view-canvas2d" class="view">
+      <div class="view-content" id="canvas2dRoot"></div>
+    </section>
+
+    <!-- ===================== COMFYUI VIEW (classic) ===================== -->
+    <section id="view-comfyui" class="view">
+      <div class="view-content">
+        <div class="view-head">
+          <div>
+            <h1>Gestionnaire ComfyUI</h1>
+            <p id="comfyPath">Synchronisé avec le dossier local</p>
+          </div>
+          <div class="spacer"></div>
+          <button class="btn ghost" id="rescan">↻ Rescanner</button>
+          <span class="badge none" id="syncBadge">● Synchronisé</span>
+        </div>
+        <div class="stat-row" id="comfyStats"></div>
+        <div class="tabs" id="comfyTabs">
+          <button class="on" data-tab="installed">Installés</button>
+          <button data-tab="search">Rechercher</button>
+          <button data-tab="downloads">Téléchargements</button>
+          <button data-tab="workflows">Workflows</button>
+        </div>
+        <div id="tab-installed">
+          <div class="filters">
+            <input id="localSearch" class="chip" style="min-width:240px" placeholder="Filtrer les fichiers installés…">
+            <select id="localType"><option value="">Tous types</option></select>
+          </div>
+          <table class="table">
+            <thead><tr><th>Nom</th><th>Type</th><th>Base</th><th>Taille</th><th>Dossier</th></tr></thead>
+            <tbody id="localBody"></tbody>
+          </table>
+        </div>
+        <div id="tab-search" class="hidden">
+          <div class="filters">
+            <input id="civSearch" class="chip" style="min-width:260px" placeholder="Rechercher sur Civitai…">
+            <select id="civType">
+              <option value="">Tous</option>
+              <option value="LORA">LoRA</option>
+              <option value="Checkpoint">Checkpoint</option>
+              <option value="Workflows">Workflows</option>
+            </select>
+            <select id="civBase"><option value="">Toutes bases</option></select>
+            <label class="switch"><input type="checkbox" id="civWomen" checked><span class="track"></span><span>♀ Femmes</span></label>
+            <button class="btn primary sm" id="civGo">Chercher</button>
+          </div>
+          <div id="civResults"></div>
+        </div>
+        <div id="tab-downloads" class="hidden"><div id="dlList"></div></div>
+        <div id="tab-workflows" class="hidden"><div id="wfList"></div></div>
+      </div>
+    </section>
+
+    <!-- ===================== PROFIL VIEW ===================== -->
+    <section id="view-profil" class="view">
+      <div class="view-content">
+        <div class="view-head"><div><h1>Profil &amp; Matériel</h1><p>Votre configuration locale.</p></div></div>
+        <div class="stat-row" id="profStats"></div>
+        <div class="split">
+          <div class="panel">
+            <h3>Répartition des LoRA par base</h3>
+            <div id="baseBars"></div>
+          </div>
+          <div class="panel">
+            <h3>Préférences</h3>
+            <div class="field">
+              <label>Safe mode (flouter le NSFW)</label>
+              <label class="switch"><input type="checkbox" id="prefSafe" checked><span class="track"></span><span>Activé</span></label>
+            </div>
+            <div class="field">
+              <label>Dossier ComfyUI</label>
+              <div class="codebox" id="prefPath">—</div>
+            </div>
+            <div class="field">
+              <label>Base conseillée (RTX 3060 12 Go)</label>
+              <div class="row"><span class="badge none">Flux.2 Klein 4B</span><span class="badge">≤ 12 Go</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ===================== DRAWER ===================== -->
+<aside id="drawer" class="drawer">
+  <div class="dh">
+    <h3 id="drawerTitle" style="flex:1;font-size:15px">Détail</h3>
+    <button class="btn icon ghost" id="drawerClose">✕</button>
+  </div>
+  <div class="db" id="drawerBody"></div>
+</aside>
+<div id="scrim" class="scrim"></div>
+<div id="toast" class="toast"></div>
+
+<!-- ===================== WORKFLOW TOOLBAR (floating) ===================== -->
+<div class="wf-toolbar" id="wfToolbar">
+  <button class="btn ghost sm" id="wfUndo" title="Undo (Ctrl+Z)">↶</button>
+  <button class="btn ghost sm" id="wfRedo" title="Redo (Ctrl+Shift+Z)">↷</button>
+  <span class="sep"></span>
+  <button class="btn ghost sm" id="wfAutoLayout" title="Auto layout">⊞</button>
+  <button class="btn ghost sm" id="wfCenter" title="Center view">⊙</button>
+  <button class="btn ghost sm" id="wfZoomIn" title="Zoom in">+</button>
+  <button class="btn ghost sm" id="wfZoomOut" title="Zoom out">−</button>
+  <span class="sep"></span>
+  <button class="btn ghost sm" id="wfSave" title="Save (Ctrl+S)">💾</button>
+  <button class="btn ghost sm" id="wfExport" title="Export">⬇</button>
+  <button class="btn ghost sm" id="wfImport" title="Import">⬆</button>
+  <span class="sep"></span>
+  <span class="wf-stats" id="wfStats">0 nodes · 0 edges</span>
+</div>
+
+<!-- ===================== MINI-GENERATOR MODAL ===================== -->
+<div class="gen-modal" id="genModal">
+  <div class="gen-box">
+    <h3>✦ Générer une image</h3>
+    <textarea id="genPrompt" placeholder="Prompt positif — décrivez la femme, l'éclairage, le style…"></textarea>
+    <div class="gen-grid">
+      <div class="slider-row">
+        <div class="lbl"><span>Steps</span><b id="genStepsV">24</b></div>
+        <input type="range" id="genSteps" min="1" max="50" value="24">
+      </div>
+      <div class="slider-row">
+        <div class="lbl"><span>Guidance</span><b id="genCfgV">3.5</b></div>
+        <input type="range" id="genCfg" min="1" max="15" step="0.5" value="3.5">
+      </div>
+      <div class="field">
+        <label>Modèle</label>
+        <select id="genModel"><option>Flux.2 Klein 4B</option><option>Flux.1 D</option><option>SDXL</option></select>
+      </div>
+      <div class="field">
+        <label>Ratio</label>
+        <select id="genRatio"><option>768×1152</option><option>1024×1024</option><option>1152×768</option></select>
+      </div>
+      <div class="field">
+        <label>Sampler</label>
+        <select id="genSampler">
+          <option value="euler">euler</option>
+          <option value="euler_ancestral">euler_ancestral</option>
+          <option value="dpmpp_2m">dpmpp_2m</option>
+          <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
+          <option value="heun">heun</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Scheduler</label>
+        <select id="genScheduler">
+          <option value="simple">simple</option>
+          <option value="karras">karras</option>
+          <option value="exponential">exponential</option>
+          <option value="sgm_uniform">sgm_uniform</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Seed</label>
+        <input type="number" id="genSeed" value="-1" placeholder="-1 = aléatoire" style="width:100%;padding:8px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--surface-2);color:var(--text)">
+      </div>
+      <div class="field">
+        <label>VAE</label>
+        <select id="genVae">
+          <option value="auto">Auto</option>
+          <option value="ae.safetensors">ae.safetensors</option>
+          <option value="sdxl_vae.safetensors">sdxl_vae</option>
+        </select>
+      </div>
+    </div>
+    <div class="gen-actions">
+      <button class="btn ghost" id="genCancel">Annuler</button>
+      <button class="btn primary" id="genRun">Lancer → ComfyUI</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/v2/main.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Flux Studio — Explorateur de prompts Flux.2 Klein 4B</title>
+<!-- Google Fonts: Space Grotesk, Inter, JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-dim": "#111317",
+            "on-tertiary-fixed-variant": "#005236",
+            "background": "#111317",
+            "tertiary-fixed": "#6ffbbe",
+            "secondary": "#d3fbff",
+            "on-background": "#e2e2e6",
+            "secondary-fixed": "#7df4ff",
+            "on-secondary-container": "#00686f",
+            "inverse-on-surface": "#2f3034",
+            "on-tertiary-container": "#00311f",
+            "on-primary-fixed-variant": "#4816cb",
+            "tertiary-container": "#00a572",
+            "primary-container": "#947dff",
+            "outline-variant": "#484555",
+            "outline": "#938ea1",
+            "on-surface-variant": "#c9c4d8",
+            "primary": "#cabeff",
+            "tertiary": "#4edea3",
+            "on-tertiary-fixed": "#002113",
+            "surface": "#111317",
+            "error": "#ffb4ab",
+            "on-primary-fixed": "#1c0062",
+            "secondary-container": "#00eefc",
+            "surface-container-highest": "#333538",
+            "surface-bright": "#37393d",
+            "surface-container-lowest": "#0c0e11",
+            "primary-fixed": "#e6deff",
+            "on-secondary-fixed": "#002022",
+            "on-primary": "#31009a",
+            "surface-container-low": "#1a1c1f",
+            "on-secondary": "#00363a",
+            "on-secondary-fixed-variant": "#004f54",
+            "on-error": "#690005",
+            "tertiary-fixed-dim": "#4edea3",
+            "surface-variant": "#333538",
+            "on-surface": "#e2e2e6",
+            "secondary-fixed-dim": "#00dbe9",
+            "surface-container": "#1e2023",
+            "on-error-container": "#ffdad6",
+            "on-primary-container": "#2a0088",
+            "inverse-primary": "#603ce2",
+            "inverse-surface": "#e2e2e6",
+            "on-tertiary": "#003824",
+            "surface-container-high": "#282a2d",
+            "primary-fixed-dim": "#cabeff",
+            "surface-tint": "#cabeff",
+            "error-container": "#93000a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-md": "0.875rem",
+            "gutter": "1rem",
+            "space-sm": "0.5rem",
+            "space-xl": "2rem",
+            "margin": "1.5rem",
+            "space-lg": "1.25rem",
+            "space-xs": "0.25rem"
+          },
+          "fontFamily": {
+            "headline-md": ["Space Grotesk"],
+            "body-lg": ["Inter"],
+            "headline-lg": ["Space Grotesk"],
+            "body-md": ["Inter"],
+            "label-code-sm": ["JetBrains Mono"],
+            "body-sm": ["Inter"],
+            "label-code-lg": ["JetBrains Mono"],
+            "headline-xl-mobile": ["Space Grotesk"],
+            "headline-xl": ["Space Grotesk"]
+          },
+          "fontSize": {
+            "headline-md": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+            "body-lg": ["15px", {"lineHeight": "22px", "fontWeight": "400"}],
+            "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+            "body-md": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+            "label-code-sm": ["11px", {"lineHeight": "14px", "fontWeight": "400"}],
+            "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+            "label-code-lg": ["13px", {"lineHeight": "18px", "fontWeight": "500"}],
+            "headline-xl-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+            "headline-xl": ["36px", {"lineHeight": "44px", "fontWeight": "700"}]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    /* Custom scrollbar for cyber/dark theme */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0c0e11;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #282a2d;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #484555;
+    }
+    .custom-glow {
+      box-shadow: 0 0 20px -2px rgba(148, 125, 255, 0.25);
+    }
+    .accent-cyan-glow {
+      box-shadow: 0 0 16px -2px rgba(0, 238, 252, 0.3);
+    }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface antialiased overflow-hidden select-none font-body-md text-body-md">
+<!-- ==================== HEADER (TOPNAVBAR) ==================== -->
+<header class="fixed top-0 left-0 w-full z-50 flex items-center justify-between px-space-xl h-14 bg-surface-dim/80 backdrop-blur-md border-b border-outline-variant/20 shadow-sm">
+<!-- GAUCHE : Logo & Search Bar -->
+<div class="flex items-center gap-space-lg">
+<div class="flex items-center gap-2">
+<div class="relative flex items-center justify-center w-8 h-8 rounded-lg bg-surface-container-low border border-outline-variant/30">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-headline-md text-headline-md text-primary tracking-tight font-bold">Flux Studio</span>
+<span class="px-1.5 py-0.5 rounded font-label-code-sm text-label-code-sm bg-surface-container text-secondary-fixed border border-secondary/20">v2.4 Klein</span>
+</div>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="relative hidden lg:flex items-center w-96">
+<span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
+<input class="w-full h-8 pl-9 pr-12 rounded-lg bg-surface-container-low/90 border border-outline-variant/30 text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150" placeholder="Rechercher parmi 24 500 prompts féminins, tags, LoRA..." type="text"/>
+<span class="absolute right-2 px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-code-sm text-label-code-sm border border-outline-variant/30">⌘K</span>
+</div>
+</div>
+<!-- CENTRE : Navigation Links (Exact shared component list) -->
+<nav class="hidden md:flex items-center gap-space-md p-1 rounded-xl bg-surface-container-low/80 border border-outline-variant/20 backdrop-blur-md">
+<!-- Active Link: Prompts -->
+<a class="text-primary border-b-2 border-primary font-body-md text-body-md pb-1 px-3 py-1 bg-primary-container/10 rounded-lg flex items-center gap-1.5 transition-all" href="#">
+<span class="material-symbols-outlined text-[16px]">edit_note</span>
+<span>Prompts</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface font-body-md text-body-md px-3 py-1 rounded-lg hover:bg-surface-container-high/60 transition-colors duration-150 flex items-center gap-1.5" href="#">
+<span class="material-symbols-outlined text-[16px]">hub</span>
+<span>ComfyUI</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface font-body-md text-body-md px-3 py-1 rounded-lg hover:bg-surface-container-high/60 transition-colors duration-150 flex items-center gap-1.5" href="#">
+<span class="material-symbols-outlined text-[16px]">schema</span>
+<span>Workflows</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface font-body-md text-body-md px-3 py-1 rounded-lg hover:bg-surface-container-high/60 transition-colors duration-150 flex items-center gap-1.5" href="#">
+<span class="material-symbols-outlined text-[16px]">image</span>
+<span>Image</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface font-body-md text-body-md px-3 py-1 rounded-lg hover:bg-surface-container-high/60 transition-colors duration-150 flex items-center gap-1.5" href="#">
+<span class="material-symbols-outlined text-[16px]">account_circle</span>
+<span>Profil</span>
+</a>
+</nav>
+<!-- DROITE : Actions, Quota, Notifications, Cluster Status & Profile -->
+<div class="flex items-center gap-3">
+<!-- Cluster status badge -->
+<div class="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/30">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="font-label-code-sm text-label-code-sm text-on-surface-variant">Flux.2 Online (18ms)</span>
+</div>
+<!-- Quota Credits -->
+<div class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/30">
+<span class="material-symbols-outlined text-primary text-[17px]">bolt</span>
+<span class="font-label-code-sm text-label-code-sm font-semibold text-primary">1 450 Crédits</span>
+</div>
+<!-- Notification Icon -->
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/60 border border-outline-variant/30 transition-colors">
+<span class="material-symbols-outlined text-[18px]">notifications</span>
+</button>
+<!-- Primary Action "Générer" -->
+<button class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-primary-container to-secondary-container text-on-primary font-headline-md text-body-md font-semibold flex items-center gap-1.5 hover:opacity-95 active:scale-[0.98] custom-glow transition-all">
+<span class="material-symbols-outlined text-[17px]">auto_awesome</span>
+<span>Générer</span>
+</button>
+<!-- Profile Avatar -->
+<div class="relative pl-1">
+<img class="w-8 h-8 rounded-full border border-primary/40 object-cover" data-alt="Digital art portrait of a high-tech female digital creator wearing augmented reality visor in a minimalist dark neon studio setting. Deep cyan and electric purple atmospheric lighting illuminating the face and sleek black metallic headset. Hyper-focused creative expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJbD7Sug7xbwEx3-QaJqiaSVe8qOjVZveIHQlB3XY0zhqsIpYIGWK3vCELvZlBQpVD139uxka4iS30CdQe-CY568bHsvP12AbKsqw3MKg2VO9nwABsZ6UyNP2dcumf0eXZGsmPShhOhnZ6su6twZhw4LZoSaNLTt6UB2c7Mjzr5Mm3M88mOvSkKd21f0ck8KrIfC3TfypmpKgv118UzymI4a0OuJxqCxQtx5kPRPvl3ry8kls_kfoHBgC9CLLSNVNSrj2-A5Yznfg"/>
+<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-tertiary border-2 border-surface-dim"></span>
+</div>
+</div>
+</header>
+<!-- ==================== MAIN CONTENT WRAPPER ==================== -->
+<div class="pt-14 h-screen flex overflow-hidden">
+<!-- ==================== SIDEBAR FILTRES (SIDENAVBAR) ==================== -->
+<aside class="fixed top-14 left-0 h-[calc(100vh-3.5rem)] w-72 flex flex-col justify-between p-space-md bg-surface-container-low border-r border-outline-variant/20 overflow-y-auto">
+<!-- Haut du Sidebar -->
+<div class="space-y-space-md">
+<!-- Header Filtres -->
+<div class="flex items-center justify-between pb-space-xs border-b border-outline-variant/20">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">tune</span>
+<span class="font-headline-md text-headline-md text-on-surface">Filtres Studio</span>
+</div>
+<button class="font-label-code-sm text-label-code-sm text-outline hover:text-primary transition-colors">
+            Réinitialiser les filtres
+          </button>
+</div>
+<div class="px-2 py-1.5 rounded-md bg-surface-container border border-outline-variant/30 flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+<span class="font-label-code-sm text-label-code-sm text-on-surface-variant font-medium">Flux.2 Klein 4B Actif</span>
+</div>
+<span class="font-label-code-sm text-label-code-sm text-secondary-fixed">Turbo Engine</span>
+</div>
+<!-- Section 1: Modèles de Base -->
+<div class="space-y-1.5">
+<div class="flex items-center justify-between">
+<label class="font-headline-md text-body-sm font-semibold text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">category</span>
+              Base Model
+            </label>
+<span class="font-label-code-sm text-label-code-sm text-outline">9 modèles</span>
+</div>
+<div class="space-y-1 max-h-44 overflow-y-auto pr-1">
+<!-- Selected item: Flux.2 Klein 4B -->
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded-lg bg-primary-container/20 border border-primary/40 text-primary">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-body-md text-body-md font-medium">Flux.2 Klein 4B</span>
+</div>
+<span class="px-1 py-0.5 rounded text-[9px] font-label-code-sm bg-primary/20 text-primary font-bold">4-step</span>
+</div>
+<!-- Other models -->
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded-lg hover:bg-surface-container-high/40 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded border border-outline-variant/60"></span>
+<span class="font-body-sm text-body-sm">Flux.1 Dev</span>
+</div>
+<span class="text-[10px] text-outline font-label-code-sm">28 steps</span>
+</div>
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded-lg hover:bg-surface-container-high/40 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded border border-outline-variant/60"></span>
+<span class="font-body-sm text-body-sm">SDXL Turbo</span>
+</div>
+<span class="text-[10px] text-outline font-label-code-sm">1-step</span>
+</div>
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded-lg hover:bg-surface-container-high/40 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded border border-outline-variant/60"></span>
+<span class="font-body-sm text-body-sm">Pony Diffusion V6</span>
+</div>
+<span class="text-[10px] text-outline font-label-code-sm">Anime/XL</span>
+</div>
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded-lg hover:bg-surface-container-high/40 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded border border-outline-variant/60"></span>
+<span class="font-body-sm text-body-sm">Illustrious XL</span>
+</div>
+</div>
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded-lg hover:bg-surface-container-high/40 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded border border-outline-variant/60"></span>
+<span class="font-body-sm text-body-sm">Stable Diffusion 1.5</span>
+</div>
+</div>
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded-lg hover:bg-surface-container-high/40 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded border border-outline-variant/60"></span>
+<span class="font-body-sm text-body-sm">Qwen-VL Image</span>
+</div>
+</div>
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded-lg hover:bg-surface-container-high/40 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded border border-outline-variant/60"></span>
+<span class="font-body-sm text-body-sm">Z-Image Turbo</span>
+</div>
+</div>
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded-lg hover:bg-surface-container-high/40 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded border border-outline-variant/60"></span>
+<span class="font-body-sm text-body-sm">LTX Video FX</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 2: Type de Rendu -->
+<div class="space-y-1.5 pt-1 border-t border-outline-variant/20">
+<label class="font-headline-md text-body-sm font-semibold text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-secondary">palette</span>
+            Type de rendu
+          </label>
+<div class="grid grid-cols-1 gap-1">
+<button class="text-left px-2 py-1 rounded bg-surface-container border border-primary/40 text-primary font-body-sm text-body-sm flex items-center justify-between">
+<span>Photographie portrait</span>
+<span class="material-symbols-outlined text-[14px]">check</span>
+</button>
+<button class="text-left px-2 py-1 rounded hover:bg-surface-container text-on-surface-variant font-body-sm text-body-sm flex items-center justify-between transition-colors">
+<span>Cyberpunk &amp; Sci-Fi</span>
+</button>
+<button class="text-left px-2 py-1 rounded hover:bg-surface-container text-on-surface-variant font-body-sm text-body-sm flex items-center justify-between transition-colors">
+<span>Mode haute couture</span>
+</button>
+<button class="text-left px-2 py-1 rounded hover:bg-surface-container text-on-surface-variant font-body-sm text-body-sm flex items-center justify-between transition-colors">
+<span>Anime &amp; 2.5D</span>
+</button>
+<button class="text-left px-2 py-1 rounded hover:bg-surface-container text-on-surface-variant font-body-sm text-body-sm flex items-center justify-between transition-colors">
+<span>Cinematic 35mm</span>
+</button>
+</div>
+</div>
+<!-- Section 3: NSFW Level -->
+<div class="space-y-1.5 pt-1 border-t border-outline-variant/20">
+<div class="flex items-center justify-between">
+<label class="font-headline-md text-body-sm font-semibold text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-tertiary">verified_user</span>
+              NSFW Level
+            </label>
+<span class="font-label-code-sm text-label-code-sm text-outline">Sécurité</span>
+</div>
+<div class="grid grid-cols-4 gap-1 p-1 bg-surface-container rounded-lg border border-outline-variant/30">
+<!-- None -->
+<button class="flex flex-col items-center py-1 rounded bg-surface-container-high border border-tertiary/40 text-on-surface">
+<span class="w-2 h-2 rounded-full bg-[#10b981] mb-0.5"></span>
+<span class="font-label-code-sm text-[10px] font-semibold">None</span>
+</button>
+<!-- Soft -->
+<button class="flex flex-col items-center py-1 rounded hover:bg-surface-container-high/60 text-on-surface-variant transition-colors">
+<span class="w-2 h-2 rounded-full bg-[#f59e0b] mb-0.5"></span>
+<span class="font-label-code-sm text-[10px]">Soft</span>
+</button>
+<!-- Mature -->
+<button class="flex flex-col items-center py-1 rounded hover:bg-surface-container-high/60 text-on-surface-variant transition-colors">
+<span class="w-2 h-2 rounded-full bg-[#f97316] mb-0.5"></span>
+<span class="font-label-code-sm text-[10px]">Mature</span>
+</button>
+<!-- X -->
+<button class="flex flex-col items-center py-1 rounded hover:bg-surface-container-high/60 text-on-surface-variant transition-colors">
+<span class="w-2 h-2 rounded-full bg-[#ef4444] mb-0.5"></span>
+<span class="font-label-code-sm text-[10px]">X</span>
+</button>
+</div>
+</div>
+<!-- Section 4: Toggle Femmes Seulement -->
+<div class="pt-1 border-t border-outline-variant/20">
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface-container border border-outline-variant/30">
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">female</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Femmes seulement</span>
+</div>
+<span class="text-[10px] text-outline font-body-sm">Portraits, corps &amp; expressions</span>
+</div>
+<!-- Switch ON -->
+<div class="w-9 h-5 bg-primary-container rounded-full p-0.5 flex items-center justify-end cursor-pointer">
+<div class="w-4 h-4 rounded-full bg-white shadow-sm"></div>
+</div>
+</div>
+</div>
+<!-- Section 5: Tags Populaires -->
+<div class="space-y-1.5 pt-1 border-t border-outline-variant/20">
+<label class="font-headline-md text-body-sm font-semibold text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">tag</span>
+            Tags populaires
+          </label>
+<div class="flex flex-wrap gap-1">
+<span class="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary font-label-code-sm text-label-code-sm cursor-pointer hover:bg-primary/20">#Portrait</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#StudioLight</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#Cyberpunk</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#8kPhotoreal</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#CinematicBokeh</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#Redhead</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#NeonGlow</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#Fujifilm35mm</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#Ethereal</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#WetSkin</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-code-sm text-label-code-sm cursor-pointer hover:border-primary">#VogueEditorial</span>
+</div>
+</div>
+</div>
+<!-- Bas du Sidebar (Footer links) -->
+<div class="pt-3 border-t border-outline-variant/20 flex flex-col gap-1">
+<a class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/40 font-body-sm text-body-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[16px]">menu_book</span>
+<span>Documentation</span>
+</a>
+<a class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/40 font-body-sm text-body-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[16px]">settings</span>
+<span>Réglages API</span>
+</a>
+</div>
+</aside>
+<!-- ==================== CANEVAS CENTRAL D'AFFICHAGE (MAIN CONTENT) ==================== -->
+<main class="ml-72 flex-1 h-[calc(100vh-3.5rem)] overflow-y-auto p-space-lg bg-surface-container-lowest">
+<!-- Toolbar supérieure de la grille -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-space-md pb-space-sm border-b border-outline-variant/20">
+<!-- Compteur & Tags actifs -->
+<div class="flex flex-wrap items-center gap-2">
+<span class="font-headline-md text-body-lg font-bold text-on-surface">2 842 prompts</span>
+<span class="text-outline text-body-sm">trouvés pour Flux.2 Klein 4B</span>
+<div class="flex items-center gap-1.5 ml-2">
+<span class="px-2 py-0.5 rounded bg-surface-container border border-outline-variant/30 font-label-code-sm text-label-code-sm text-on-surface-variant flex items-center gap-1">
+              Base: Flux.2 Klein 4B
+              <span class="material-symbols-outlined text-[12px] cursor-pointer hover:text-error">close</span>
+</span>
+<span class="px-2 py-0.5 rounded bg-surface-container border border-outline-variant/30 font-label-code-sm text-label-code-sm text-on-surface-variant flex items-center gap-1">
+              Femmes
+              <span class="material-symbols-outlined text-[12px] cursor-pointer hover:text-error">close</span>
+</span>
+</div>
+</div>
+<!-- Controls de Tri & Affichage -->
+<div class="flex items-center gap-3">
+<!-- Tri Dropdown -->
+<div class="flex items-center gap-1.5 bg-surface-container-low px-2.5 py-1.5 rounded-lg border border-outline-variant/30">
+<span class="material-symbols-outlined text-outline text-[16px]">sort</span>
+<span class="font-body-sm text-body-sm text-on-surface">Plus récents</span>
+<span class="material-symbols-outlined text-outline text-[16px]">expand_more</span>
+</div>
+<!-- Switcher Grille -->
+<div class="flex items-center bg-surface-container-low p-1 rounded-lg border border-outline-variant/30">
+<button class="w-7 h-7 flex items-center justify-center rounded bg-surface-container text-primary">
+<span class="material-symbols-outlined text-[18px]">grid_view</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded text-outline hover:text-on-surface">
+<span class="material-symbols-outlined text-[18px]">view_column</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded text-outline hover:text-on-surface">
+<span class="material-symbols-outlined text-[18px]">view_agenda</span>
+</button>
+</div>
+</div>
+</div>
+<!-- ==================== MASONRY / BENTO GRID PROMPTS FEMMES ==================== -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-space-md">
+<!-- CARTE 1: Cyberpunk Neon Portrait -->
+<div class="group relative rounded-[14px] bg-surface-container-low border border-white/[0.08] overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col justify-between hover:shadow-lg">
+<!-- Vignette et Badges -->
+<div class="relative w-full aspect-[4/5] overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Intricate cinematic portrait of a cybernetic Japanese woman in Neo Tokyo at night. Iridescent violet skin reflections, subtle micro-LED implants along cheekbones, intense gaze, wet atmospheric rain, soft bokeh of glowing holographic advertisements. Photorealistic 8k render, depth of field." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnUePxd6Tg5wSfsc9GkurRqaoalESv4ikQaPLkDPj28JJ_qHl40fC6NqTW0b7aV1I1yn37oveiRXuYCtkxpMyl6g_bSTXu2GDriEKMyl3AoPB4MUlgeJ1YrJa6Z6NHr9xo2fKBYEshBHuYjpjy1WMyyM6vPk-_rDYpsd9UOVIZDDKLzKFWbg2WbNSTcD5okIroAFVoHOJKHy8QleIubq-fYyB7VltR9c-zZnL10_ipEttgyy857DTD5PyEKc2ljPSMeHx3qnuB_aE"/>
+<!-- Badge NSFW -->
+<div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-[#10b981]/15 backdrop-blur-md border border-[#10b981]/30 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
+<span class="font-label-code-sm text-[10px] uppercase font-semibold text-tertiary">NSFW: None</span>
+</div>
+<!-- Badge Modèle -->
+<div class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-surface-dim/80 backdrop-blur-md border border-white/[0.08] flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[12px]">bolt</span>
+<span class="font-label-code-sm text-[10px] text-on-surface">Klein 4B • 4 steps</span>
+</div>
+<!-- Quick copy overlay hover button -->
+<div class="absolute inset-0 bg-surface-dim/40 opacity-0 group-hover:opacity-100 backdrop-blur-xs transition-opacity duration-200 flex items-center justify-center gap-2">
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-primary hover:scale-110 transition-all border border-white/[0.1] shadow-lg" title="Copier le Prompt">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-secondary-fixed hover:scale-110 transition-all border border-white/[0.1] shadow-lg" title="Ouvrir dans ComfyUI">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</button>
+</div>
+</div>
+<!-- Détails & Prompt text -->
+<div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between text-outline font-label-code-sm text-label-code-sm mb-1">
+<span class="text-secondary-fixed font-semibold">Flux.2 Klein 4B</span>
+<span>0.72s • LoRA: CyberGlow</span>
+</div>
+<p class="font-label-code-sm text-[11px] text-on-surface-variant line-clamp-2 bg-surface-container-lowest/80 p-1.5 rounded-md border border-outline-variant/20">
+                photorealistic close up shot of a cybernetic woman in rain, neon violet highlights, f/1.4 aperture, detailed eyes
+              </p>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant/10 text-on-surface-variant font-label-code-sm text-label-code-sm">
+<div class="flex items-center gap-1 hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[15px]">favorite</span>
+<span>482</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="hover:text-primary transition-colors flex items-center gap-0.5" title="Télécharger PNG">
+<span class="material-symbols-outlined text-[15px]">download</span>
+</button>
+<button class="hover:text-primary transition-colors flex items-center gap-0.5" title="Copier Seed">
+<span class="material-symbols-outlined text-[15px]">tag</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- CARTE 2: Studio Golden Light Editorial -->
+<div class="group relative rounded-[14px] bg-surface-container-low border border-white/[0.08] overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col justify-between hover:shadow-lg">
+<div class="relative w-full aspect-[4/5] overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Editorial studio portrait of an elegant French woman with tousled dark hair bathed in warm late afternoon sunlight. Golden rim lighting, natural skin texture with subtle freckles, minimalist silk blouse, sharp focus on amber eyes, shallow depth of field, Vogue aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFyBgbDHdKasUDwLDpQ_t_aaMzUc0nctCMMW_cYPeHOfCC6H5Jcy5MMRvO0BKypB-b3R5rZz1or7z0shEsl-cYSBBS-dCa7gKOC7-cUoMeHcG5PaIrbCj9TojuQiSQeg78Z7YJ5wIkHLffSFu1TL7np41dTdpHIWvc7p9cMcfRBdsSS21kKMk962qnbfbZK4Bg0ASn6_YPi6ydeXM9fMXG3swqaBdKPrC_tkXtVmJyYlJei_aedc0T2zWi7Amw8Xjkb_53dQVfRbQ"/>
+<div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-[#f59e0b]/15 backdrop-blur-md border border-[#f59e0b]/30 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#f59e0b]"></span>
+<span class="font-label-code-sm text-[10px] uppercase font-semibold text-[#f59e0b]">NSFW: Soft</span>
+</div>
+<div class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-surface-dim/80 backdrop-blur-md border border-white/[0.08] flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[12px]">bolt</span>
+<span class="font-label-code-sm text-[10px] text-on-surface">Klein 4B • CFG 2.2</span>
+</div>
+<div class="absolute inset-0 bg-surface-dim/40 opacity-0 group-hover:opacity-100 backdrop-blur-xs transition-opacity duration-200 flex items-center justify-center gap-2">
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-primary hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-secondary-fixed hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</button>
+</div>
+</div>
+<div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between text-outline font-label-code-sm text-label-code-sm mb-1">
+<span class="text-secondary-fixed font-semibold">Flux.2 Klein 4B</span>
+<span>0.81s • LoRA: FilmGrain</span>
+</div>
+<p class="font-label-code-sm text-[11px] text-on-surface-variant line-clamp-2 bg-surface-container-lowest/80 p-1.5 rounded-md border border-outline-variant/20">
+                studio portrait of young french woman, golden hour sunlight streaks, fine silk dress, ultra realistic skin pores, 85mm
+              </p>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant/10 text-on-surface-variant font-label-code-sm text-label-code-sm">
+<div class="flex items-center gap-1 hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[15px]">favorite</span>
+<span>834</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">download</span>
+</button>
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">tag</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- CARTE 3: Futuristic Luminescent Goddess -->
+<div class="group relative rounded-[14px] bg-surface-container-low border border-white/[0.08] overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col justify-between hover:shadow-lg">
+<div class="relative w-full aspect-[4/5] overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Breathtaking visual of a futuristic ethereal deity with glowing geometric porcelain body paint. Deep indigo and electric cyan lighting scheme, floating glowing runes, calm divine facial expression, high-contrast dark sci-fi background, award-winning 3D concept render." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnqZAchJny1Rcki40XIGx38puchJzkbxn3vkGO4s7dp1t0bq_NEki9HKxcc0obvCryxPmjblyme_rMMAitQ2QnFADN588S9KmjJ1MhJIwL617i6YczWtFikzkO2UliIYaz5-5O9ZvJQuwMUFS53g0AhJu84sOyRre7NY6eZN-VoVI1kssuE7pTbPR1OgGtCHQc48k03XRxxc4K2_SdF689fV6j8gkc1g-1EOw-puMquAFBnK3XqIyNazyWx-jdaU13lIxBfzTTBxc"/>
+<div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-[#10b981]/15 backdrop-blur-md border border-[#10b981]/30 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
+<span class="font-label-code-sm text-[10px] uppercase font-semibold text-tertiary">NSFW: None</span>
+</div>
+<div class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-surface-dim/80 backdrop-blur-md border border-white/[0.08] flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[12px]">bolt</span>
+<span class="font-label-code-sm text-[10px] text-on-surface">Klein 4B • 6 steps</span>
+</div>
+<div class="absolute inset-0 bg-surface-dim/40 opacity-0 group-hover:opacity-100 backdrop-blur-xs transition-opacity duration-200 flex items-center justify-center gap-2">
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-primary hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-secondary-fixed hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</button>
+</div>
+</div>
+<div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between text-outline font-label-code-sm text-label-code-sm mb-1">
+<span class="text-secondary-fixed font-semibold">Flux.2 Klein 4B</span>
+<span>0.95s • LoRA: BiolumV1</span>
+</div>
+<p class="font-label-code-sm text-[11px] text-on-surface-variant line-clamp-2 bg-surface-container-lowest/80 p-1.5 rounded-md border border-outline-variant/20">
+                ethereal goddess, glowing cyan patterns, porcelain skin, sacred geometry, dramatic volumetric backlight, octane render
+              </p>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant/10 text-on-surface-variant font-label-code-sm text-label-code-sm">
+<div class="flex items-center gap-1 hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[15px]">favorite</span>
+<span>1 204</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">download</span>
+</button>
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">tag</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- CARTE 4: 35mm Analogique Vintage -->
+<div class="group relative rounded-[14px] bg-surface-container-low border border-white/[0.08] overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col justify-between hover:shadow-lg">
+<div class="relative w-full aspect-[4/5] overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Authentic 35mm film photograph of a red-haired woman wearing an oversized leather jacket against a gritty concrete wall. Natural overcast daylight, faint film grain, muted warm retro tones, raw candid emotion, Leica M6 aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDqZPf18lAmVwPA9PjbSbDGTdCndxYZad5Dz60HEr4zwM7jZvhiAY_WBWHPimel1GcwhuD3vNz_CYd6OUnucxqdqVP0Rq8DVqw6jSM4zcFlwdRqoKBIgspODrR4xY93qXtIk5C1gdx2VRMd1P3spfg-nEfh6AnV8Pv8SvTQgM6oFFt6-pBti_QcLGB5-SadecbzqhsGtBsy942JB8yem8rwRbnxwoAcYtl880cvRV4cV9P-o_LyqeBSzPxcfA7L5Tlzw9tPMmC1lk"/>
+<div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-[#f59e0b]/15 backdrop-blur-md border border-[#f59e0b]/30 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#f59e0b]"></span>
+<span class="font-label-code-sm text-[10px] uppercase font-semibold text-[#f59e0b]">NSFW: Soft</span>
+</div>
+<div class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-surface-dim/80 backdrop-blur-md border border-white/[0.08] flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[12px]">bolt</span>
+<span class="font-label-code-sm text-[10px] text-on-surface">Klein 4B • 4 steps</span>
+</div>
+<div class="absolute inset-0 bg-surface-dim/40 opacity-0 group-hover:opacity-100 backdrop-blur-xs transition-opacity duration-200 flex items-center justify-center gap-2">
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-primary hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-secondary-fixed hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</button>
+</div>
+</div>
+<div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between text-outline font-label-code-sm text-label-code-sm mb-1">
+<span class="text-secondary-fixed font-semibold">Flux.2 Klein 4B</span>
+<span>0.68s • LoRA: Portra400</span>
+</div>
+<p class="font-label-code-sm text-[11px] text-on-surface-variant line-clamp-2 bg-surface-container-lowest/80 p-1.5 rounded-md border border-outline-variant/20">
+                analog snapshot 35mm fujifilm, redhead woman looking away, gritty urban wall, natural light, nostalgic halation
+              </p>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant/10 text-on-surface-variant font-label-code-sm text-label-code-sm">
+<div class="flex items-center gap-1 hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[15px]">favorite</span>
+<span>619</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">download</span>
+</button>
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">tag</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- CARTE 5: Mode Haute Couture Monochrome & Violet -->
+<div class="group relative rounded-[14px] bg-surface-container-low border border-white/[0.08] overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col justify-between hover:shadow-lg">
+<div class="relative w-full aspect-[4/5] overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="High-fashion runway portrait of an African woman wearing sculptural architectural headwear. Dramatic chiaroscuro studio lighting, glossy dark skin with highlights, regal expression, subtle deep violet backdrop with sharp shadows, Vogue Italia cover quality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWJymYbTDoHopR_pthpLMXlUmA4_6CHZ3YYSifska5x_-sWscYH7vH8j5QQIpyB3TXSGG-_kQeAuPXodt065OCQN8Bcs75Mw0SyfmHITOhTbd4B3kIwjNxayGheUOZ1ri577TSTMytGgGf-oAGyVHnYclemrObXf-N1EEIG1QUbRIIvf5yY_7VwdqKc_K6eTFY4GGKJh9iUK_qQDNz303SG-nBwmFBISHOAJsEjG2oD2PsCS4PnJuSuWO2kVVhHsWNCp7uxxmv0Xc"/>
+<div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-[#10b981]/15 backdrop-blur-md border border-[#10b981]/30 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
+<span class="font-label-code-sm text-[10px] uppercase font-semibold text-tertiary">NSFW: None</span>
+</div>
+<div class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-surface-dim/80 backdrop-blur-md border border-white/[0.08] flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[12px]">bolt</span>
+<span class="font-label-code-sm text-[10px] text-on-surface">Klein 4B • 4 steps</span>
+</div>
+<div class="absolute inset-0 bg-surface-dim/40 opacity-0 group-hover:opacity-100 backdrop-blur-xs transition-opacity duration-200 flex items-center justify-center gap-2">
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-primary hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-secondary-fixed hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</button>
+</div>
+</div>
+<div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between text-outline font-label-code-sm text-label-code-sm mb-1">
+<span class="text-secondary-fixed font-semibold">Flux.2 Klein 4B</span>
+<span>0.74s • LoRA: HauteCouture</span>
+</div>
+<p class="font-label-code-sm text-[11px] text-on-surface-variant line-clamp-2 bg-surface-container-lowest/80 p-1.5 rounded-md border border-outline-variant/20">
+                high fashion editorial portrait, majestic african model, architectural structure, high contrast hard studio light
+              </p>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant/10 text-on-surface-variant font-label-code-sm text-label-code-sm">
+<div class="flex items-center gap-1 hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[15px]">favorite</span>
+<span>945</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">download</span>
+</button>
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">tag</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- CARTE 6: Wet Skin Cinematic Bokeh -->
+<div class="group relative rounded-[14px] bg-surface-container-low border border-white/[0.08] overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col justify-between hover:shadow-lg">
+<div class="relative w-full aspect-[4/5] overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Sensory cinematic close up of a woman emerging from dark water with water droplets glistening on her face and collarbone. Dim misty moonlight, teal and cyan ambient reflections, intense atmospheric stillness, macro lens photographic detail, moody fine art composition." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDZC0IWiZ1usZOcaijVxHhQlYrV3mZMGPSswhvf_dxXPPhlR-OyHiL8bRYJsuo1GXIIu8b3MOdqsmYTl4Goyap04brNCRUzOwdnCVf5hTZhECwHcx7kNUNy20N_6Z1SXAubNGmLzYrwdDWrUlSBDDVzwMxw1IfpUdnBfBaXFo32V1Bx2-Mr8QbFdEdqgQxEyc2rAaqNoqakeUIQTqwLFy6FeZryJxeRm6pnMGbvZm7BxjSJXzA6RNru-gjfpx4nxOGdOQYYwvhkwE"/>
+<div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-[#f97316]/15 backdrop-blur-md border border-[#f97316]/30 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#f97316]"></span>
+<span class="font-label-code-sm text-[10px] uppercase font-semibold text-[#f97316]">NSFW: Mature</span>
+</div>
+<div class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-surface-dim/80 backdrop-blur-md border border-white/[0.08] flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[12px]">bolt</span>
+<span class="font-label-code-sm text-[10px] text-on-surface">Klein 4B • CFG 1.8</span>
+</div>
+<div class="absolute inset-0 bg-surface-dim/40 opacity-0 group-hover:opacity-100 backdrop-blur-xs transition-opacity duration-200 flex items-center justify-center gap-2">
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-primary hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-secondary-fixed hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</button>
+</div>
+</div>
+<div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between text-outline font-label-code-sm text-label-code-sm mb-1">
+<span class="text-secondary-fixed font-semibold">Flux.2 Klein 4B</span>
+<span>0.88s • LoRA: WaterGloss</span>
+</div>
+<p class="font-label-code-sm text-[11px] text-on-surface-variant line-clamp-2 bg-surface-container-lowest/80 p-1.5 rounded-md border border-outline-variant/20">
+                cinematic macro shot of woman face emerging from dark water, droplets on eyelashes, moody cyan moonlit lake, f/1.2
+              </p>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant/10 text-on-surface-variant font-label-code-sm text-label-code-sm">
+<div class="flex items-center gap-1 hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[15px]">favorite</span>
+<span>1 560</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">download</span>
+</button>
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">tag</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- CARTE 7: Anime 2.5D Semi-Réaliste -->
+<div class="group relative rounded-[14px] bg-surface-container-low border border-white/[0.08] overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col justify-between hover:shadow-lg">
+<div class="relative w-full aspect-[4/5] overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Exquisite 2.5D semi-realistic digital illustration of a silver-haired young woman with violet luminescent eyes. Floating delicate cherry blossoms, gentle glowing twilight ambiance, clean stylized lines mixed with realistic subsurface skin scattering." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmOaKT0bBYKqv65LttI6RqXwEV5EB1VxFdxLx5m5oKhfeIj_M0pF4hK4Iv0n3FBT0F7a_0lWAPoGfooQ9WAlHgmMo6I82OyoQQgwZxEcBsJ95PZC22LKVq5WofeiNqVUoF-hBBAccjabwqZ-vwfxzNMbjsrn4vdzsoDQibELk6wMJD8lVkZCujRcp7XXhlDqa5IN8MLltM2yM94-VvHJIHc5x-Svg_DFDb-AFbN-kM1w0jzKPab_70NdyR6v4P5pBF-toRZ4jcGjQ"/>
+<div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-[#10b981]/15 backdrop-blur-md border border-[#10b981]/30 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
+<span class="font-label-code-sm text-[10px] uppercase font-semibold text-tertiary">NSFW: None</span>
+</div>
+<div class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-surface-dim/80 backdrop-blur-md border border-white/[0.08] flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[12px]">bolt</span>
+<span class="font-label-code-sm text-[10px] text-on-surface">Klein 4B • 4 steps</span>
+</div>
+<div class="absolute inset-0 bg-surface-dim/40 opacity-0 group-hover:opacity-100 backdrop-blur-xs transition-opacity duration-200 flex items-center justify-center gap-2">
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-primary hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-secondary-fixed hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</button>
+</div>
+</div>
+<div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between text-outline font-label-code-sm text-label-code-sm mb-1">
+<span class="text-secondary-fixed font-semibold">Flux.2 Klein 4B</span>
+<span>0.64s • LoRA: Anime2.5D</span>
+</div>
+<p class="font-label-code-sm text-[11px] text-on-surface-variant line-clamp-2 bg-surface-container-lowest/80 p-1.5 rounded-md border border-outline-variant/20">
+                2.5d masterpiece, silver hair anime girl, purple eyes, soft cinematic lighting, makoto shinkai aesthetic sky, 8k
+              </p>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant/10 text-on-surface-variant font-label-code-sm text-label-code-sm">
+<div class="flex items-center gap-1 hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[15px]">favorite</span>
+<span>732</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">download</span>
+</button>
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">tag</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- CARTE 8: Cyberpunk Rain Reflexions & Glasses -->
+<div class="group relative rounded-[14px] bg-surface-container-low border border-white/[0.08] overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col justify-between hover:shadow-lg">
+<div class="relative w-full aspect-[4/5] overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Atmospheric night portrait of an Asian woman wearing transparent smart glasses reflecting scrolling neon data code. Raindrops streaming down glass surface, blurred neon city signs in background, sharp focus, hyperdetailed cyberpunk lighting palette of magenta and electric blue." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtxmh9Feutr7Sjkh6xGOaYu_yig05FivjERAcIhFuOPPY0hbW5g-joUbJbMsbBtZjZDw8IdQYx-SlCMLnjVSWs0k2kHRhgSc42vbx2g1_X1-3ENkygTuCGpBSE8g9gcihfUlvWGGv9kLqu6tVTP8VMa79oUMEwluMa3nTIYVvAZHrqYGV2WzZqA4pj1DQUdThyko6z7pM2aVcKM_6gUASsBf6CrXW2sX1UCuDt7GWx5kz2UxRjTCJUywkRE0ELD3PRPX4EQzt96R8"/>
+<div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-[#10b981]/15 backdrop-blur-md border border-[#10b981]/30 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
+<span class="font-label-code-sm text-[10px] uppercase font-semibold text-tertiary">NSFW: None</span>
+</div>
+<div class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-surface-dim/80 backdrop-blur-md border border-white/[0.08] flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[12px]">bolt</span>
+<span class="font-label-code-sm text-[10px] text-on-surface">Klein 4B • 4 steps</span>
+</div>
+<div class="absolute inset-0 bg-surface-dim/40 opacity-0 group-hover:opacity-100 backdrop-blur-xs transition-opacity duration-200 flex items-center justify-center gap-2">
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-primary hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high/90 text-on-surface hover:text-secondary-fixed hover:scale-110 transition-all border border-white/[0.1] shadow-lg">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</button>
+</div>
+</div>
+<div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between text-outline font-label-code-sm text-label-code-sm mb-1">
+<span class="text-secondary-fixed font-semibold">Flux.2 Klein 4B</span>
+<span>0.78s • LoRA: HUDData</span>
+</div>
+<p class="font-label-code-sm text-[11px] text-on-surface-variant line-clamp-2 bg-surface-container-lowest/80 p-1.5 rounded-md border border-outline-variant/20">
+                close up night portrait, transparent smart glasses with glowing cyan text reflection, rainy shibuya street background
+              </p>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant/10 text-on-surface-variant font-label-code-sm text-label-code-sm">
+<div class="flex items-center gap-1 hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[15px]">favorite</span>
+<span>2 105</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">download</span>
+</button>
+<button class="hover:text-primary transition-colors flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[15px]">tag</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Floating Prompt Quick-Action Bar for Creators -->
+<div class="fixed bottom-5 right-8 z-40 bg-surface-container-high/90 backdrop-blur-md border border-outline-variant/40 rounded-full px-4 py-2 flex items-center gap-3 shadow-2xl">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+<span class="font-label-code-sm text-label-code-sm text-on-surface">Moteur Flux.2 Klein 4B : 4-Step Prêt</span>
+</div>
+<div class="h-4 w-px bg-outline-variant/40"></div>
+<button class="px-3 py-1 rounded-full bg-primary/20 hover:bg-primary/30 text-primary font-body-sm text-body-sm font-medium transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">terminal</span>
+<span>Invite rapide (Prompt CLI)</span>
+</button>
+</div>
+</main>
+</div>
+</body></html>

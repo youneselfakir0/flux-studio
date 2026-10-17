@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Flux Studio - Gestionnaire ComfyUI</title>
+<!-- Google Fonts & Material Symbols -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-tertiary-fixed": "#002113",
+            "background": "#111317",
+            "on-tertiary-container": "#00311f",
+            "surface-container-low": "#1a1c1f",
+            "surface": "#111317",
+            "on-surface": "#e2e2e6",
+            "tertiary": "#4edea3",
+            "inverse-primary": "#603ce2",
+            "error-container": "#93000a",
+            "surface-tint": "#cabeff",
+            "tertiary-fixed": "#6ffbbe",
+            "secondary-fixed-dim": "#00dbe9",
+            "on-error": "#690005",
+            "tertiary-fixed-dim": "#4edea3",
+            "on-tertiary": "#003824",
+            "error": "#ffb4ab",
+            "surface-variant": "#333538",
+            "secondary-container": "#00eefc",
+            "surface-bright": "#37393d",
+            "on-secondary-fixed": "#002022",
+            "surface-dim": "#111317",
+            "secondary": "#d3fbff",
+            "on-primary-container": "#2a0088",
+            "on-primary": "#31009a",
+            "tertiary-container": "#00a572",
+            "on-secondary-fixed-variant": "#004f54",
+            "on-secondary": "#00363a",
+            "on-background": "#e2e2e6",
+            "surface-container-highest": "#333538",
+            "primary-fixed-dim": "#cabeff",
+            "outline": "#938ea1",
+            "primary": "#cabeff",
+            "on-tertiary-fixed-variant": "#005236",
+            "inverse-surface": "#e2e2e6",
+            "on-secondary-container": "#00686f",
+            "primary-container": "#947dff",
+            "on-surface-variant": "#c9c4d8",
+            "inverse-on-surface": "#2f3034",
+            "surface-container-high": "#282a2d",
+            "on-primary-fixed": "#1c0062",
+            "on-error-container": "#ffdad6",
+            "secondary-fixed": "#7df4ff",
+            "surface-container": "#1e2023",
+            "primary-fixed": "#e6deff",
+            "on-primary-fixed-variant": "#4816cb",
+            "outline-variant": "#484555",
+            "surface-container-lowest": "#0c0e11"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-sm": "0.5rem",
+            "space-lg": "1.25rem",
+            "margin": "1.5rem",
+            "gutter": "1rem",
+            "space-md": "0.875rem",
+            "space-xs": "0.25rem",
+            "space-xl": "2rem"
+          },
+          "fontFamily": {
+            "headline-xl": ["Space Grotesk"],
+            "body-sm": ["Inter"],
+            "label-code-lg": ["JetBrains Mono"],
+            "body-lg": ["Inter"],
+            "headline-xl-mobile": ["Space Grotesk"],
+            "label-code-sm": ["JetBrains Mono"],
+            "headline-lg": ["Space Grotesk"],
+            "headline-md": ["Space Grotesk"],
+            "body-md": ["Inter"]
+          },
+          "fontSize": {
+            "headline-xl": ["36px", { "lineHeight": "44px", "fontWeight": "700" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "label-code-lg": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "body-lg": ["15px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "headline-xl-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
+            "label-code-sm": ["11px", { "lineHeight": "14px", "fontWeight": "400" }],
+            "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+            "headline-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "body-md": ["13px", { "lineHeight": "18px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .material-symbols-outlined.fill-icon {
+      font-variation-settings: 'FILL' 1;
+    }
+    /* Custom subtle scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #111317;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #333538;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #484555;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface font-body-md text-body-md antialiased min-h-screen flex flex-col select-none overflow-x-hidden">
+<!-- 1. TOP NAV BAR (Shared Components: TopNavBar execution with exact token mappings) -->
+<header class="fixed top-0 left-0 w-full z-50 flex items-center justify-between px-space-xl h-14 backdrop-blur-md bg-surface-dim/80 dark:bg-surface-dim/80 border-b border-outline-variant/20 dark:border-outline-variant/20 shadow-sm dark:shadow-none">
+<!-- Gauche : Brand & Search Bar -->
+<div class="flex items-center gap-space-lg">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-headline-md text-primary tracking-tight font-bold">Flux Studio</span>
+<span class="bg-primary-container/20 text-primary border border-primary/30 text-[10px] font-label-code-sm font-semibold px-2 py-0.5 rounded-full tracking-wide">v2.4 Klein</span>
+</div>
+<!-- Search Bar on left -->
+<div class="relative w-72">
+<span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-on-surface-variant">
+<span class="material-symbols-outlined">search</span>
+</span>
+<input class="w-full bg-surface-container-low text-on-surface text-body-sm font-body-sm pl-9 pr-8 py-1.5 rounded-lg border border-outline-variant/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all placeholder:text-outline/70" placeholder="Rechercher des modèles, flux..." type="text"/>
+<span class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-outline text-[11px] font-label-code-sm">⌘K</span>
+</div>
+</div>
+<!-- Centre : Navigation Links (Active = ComfyUI) -->
+<nav class="flex items-center gap-space-lg">
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface font-body-md text-body-md transition-colors duration-150" href="#">Prompts</a>
+<a class="text-primary dark:text-primary border-b-2 border-primary font-body-md text-body-md pb-1 flex items-center gap-1.5 font-medium" href="#">
+<span class="material-symbols-outlined text-[16px] fill-icon">hub</span>
+        ComfyUI
+      </a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface font-body-md text-body-md transition-colors duration-150" href="#">Workflows</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface font-body-md text-body-md transition-colors duration-150" href="#">Image</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface font-body-md text-body-md transition-colors duration-150" href="#">Profil</a>
+</nav>
+<!-- Droite : Actions, Crédits, Notifications, Avatar -->
+<div class="flex items-center gap-space-md">
+<!-- Status Pill -->
+<div class="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container-low border border-tertiary/20 text-tertiary text-[11px] font-label-code-sm">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+        Flux.2 Klein 4B Online (14ms)
+      </div>
+<!-- Crédits -->
+<div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-low border border-outline-variant/30 rounded-lg text-primary font-label-code-sm text-body-sm">
+<span class="material-symbols-outlined text-secondary-fixed text-[16px]">bolt</span>
+<span class="font-semibold">1 450 Crédits</span>
+</div>
+<!-- Icon Actions -->
+<button class="text-on-surface-variant hover:text-on-surface p-1.5 rounded-lg hover:bg-surface-container-high/60 transition-colors" title="Notifications">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-on-surface p-1.5 rounded-lg hover:bg-surface-container-high/60 transition-colors" title="Paramètres d'affichage">
+<span class="material-symbols-outlined">tune</span>
+</button>
+<!-- Trailing Primary Action -->
+<button class="bg-primary hover:bg-primary-fixed-dim text-on-primary-container px-3.5 py-1.5 rounded-lg font-body-md text-body-md font-semibold flex items-center gap-1.5 shadow-sm active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>Générer</span>
+</button>
+<!-- Avatar Créateur IA -->
+<div class="relative pl-1">
+<img class="w-8 h-8 rounded-full border border-primary/40 object-cover ring-2 ring-primary/20" data-alt="Close-up portrait of an avant-garde AI creative engineer wearing cybernetic neural implants, bathed in rich ambient violet and teal studio rim light against a high-tech minimal dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEUHoiG9fVR6Z7Txn4rtUEUN3cuye1FrtSrb4jvh_X2fqPpl68aEF5dMk7Ru3uDMdjvf6d_mL6HJefarqZnCBc-vTn8vuioCRGrbL5R8dDrmpn9DabfFXrerFa9iYK6Uf_9wTnaziU5t-wIpGr3hITq2YW3rJ_3sruTYik9Uzyhx9w2i6IfjiL793absVjDfYlr5E7eRfx827_sS5jmtL3EmFTSMZPF8cIYwoYK9lm1WNAcCYPGFX3lo39aSPB4okP11S9f_USuKg"/>
+<span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-tertiary border-2 border-background rounded-full"></span>
+</div>
+</div>
+</header>
+<!-- 2. LOCAL BRIDGE SYSTEM STATUS BAR (Subheader - Local ComfyUI Link) -->
+<div class="mt-14 w-full bg-surface-container-low border-b border-outline-variant/20 px-space-xl py-2 flex flex-wrap items-center justify-between gap-4 text-body-sm z-30">
+<div class="flex items-center gap-space-lg">
+<div class="flex items-center gap-2 font-label-code-sm">
+<span class="material-symbols-outlined text-primary text-[18px]">terminal</span>
+<span class="text-on-surface-variant">ComfyUI Local Bridge:</span>
+<span class="bg-surface-container-lowest px-2.5 py-1 rounded text-on-surface border border-outline-variant/30 flex items-center gap-1.5 font-medium tracking-tight">
+<span class="text-primary font-mono">F:\f\ComfyUI</span>
+<button class="hover:text-primary p-0.5 text-on-surface-variant transition-colors" title="Copier le chemin">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</span>
+<button class="text-primary hover:text-primary-fixed text-[11px] underline ml-1">Modifier</button>
+</div>
+<div class="h-4 w-[1px] bg-outline-variant/40"></div>
+<!-- Sync Status Indicator -->
+<div class="flex items-center gap-2">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-tertiary"></span>
+</span>
+<span class="text-tertiary font-body-sm font-medium">Synchronisé (142 modèles détectés • ComfyUI v0.2.4 actif)</span>
+</div>
+</div>
+<!-- Hardware Quick Metrics & Rescan Action -->
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-3 text-outline text-[12px] font-label-code-sm">
+<span class="flex items-center gap-1 text-on-surface-variant" title="Stockage SSD Local">
+<span class="material-symbols-outlined text-[15px]">hard_drive</span>
+<span>SSD: <strong class="text-on-surface font-mono">342 Go</strong> / 1 To</span>
+</span>
+<span class="flex items-center gap-1 text-on-surface-variant" title="VRAM Dédiée RTX 4090">
+<span class="material-symbols-outlined text-secondary-fixed text-[15px]">memory</span>
+<span>VRAM: <strong class="text-secondary-fixed font-mono">23.4 Go</strong> / 24 Go</span>
+</span>
+</div>
+<button class="flex items-center gap-1.5 bg-surface-container-high/70 hover:bg-surface-container-highest text-on-surface px-2.5 py-1 rounded text-body-sm border border-outline-variant/30 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[15px] text-primary">sync</span>
+<span>Rescanner</span>
+</button>
+</div>
+</div>
+<!-- 3. MAIN TABS BAR & ACTIONS -->
+<div class="w-full bg-surface border-b border-outline-variant/20 px-space-xl flex items-center justify-between">
+<div class="flex items-center space-x-1">
+<button class="px-4 py-3 border-b-2 border-primary text-primary font-medium text-body-md flex items-center gap-2">
+<span class="material-symbols-outlined text-[17px]">inventory_2</span>
+<span>Modèles Installés (142)</span>
+</button>
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface text-body-md flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[17px]">travel_explore</span>
+<span>Rechercher Civitai &amp; HuggingFace</span>
+</button>
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface text-body-md flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[17px]">download</span>
+<span>Téléchargements en cours</span>
+<span class="bg-primary/20 text-primary text-[10px] font-bold px-1.5 py-0.2 rounded-full">3</span>
+</button>
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface text-body-md flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[17px]">account_tree</span>
+<span>Workflows ComfyUI (.json)</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<button class="bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-on-surface px-3 py-1.5 rounded-lg text-body-sm flex items-center gap-1.5 transition-all">
+<span class="material-symbols-outlined text-tertiary text-[17px]">file_upload</span>
+<span>Importer safetensors</span>
+</button>
+<div class="flex items-center bg-surface-container-low border border-outline-variant/30 rounded-lg p-0.5">
+<button class="p-1 bg-surface-container-high rounded text-primary" title="Vue Tableau Dense">
+<span class="material-symbols-outlined text-[16px]">view_list</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-on-surface transition-colors" title="Vue Grille Vignettes">
+<span class="material-symbols-outlined text-[16px]">grid_view</span>
+</button>
+</div>
+</div>
+</div>
+<!-- 4. MAIN SPLIT CANVAS LAYOUT (Colonnes 2:3 & 1:3) -->
+<div class="flex-1 px-space-xl py-space-md grid grid-cols-12 gap-space-lg mb-20 overflow-hidden">
+<!-- COLONNE GAUCHE/CENTRALE : GESTIONNAIRE LOCAL (8 COLS) -->
+<div class="col-span-12 lg:col-span-8 flex flex-col bg-surface-container-lowest border border-outline-variant/20 rounded-xl overflow-hidden shadow-2xl">
+<!-- Toolbar Filters -->
+<div class="p-3 bg-surface-container-low/80 border-b border-outline-variant/20 flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2 flex-1 min-w-[280px]">
+<div class="relative w-full">
+<span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">filter_list</span>
+</span>
+<input class="w-full bg-surface-container text-on-surface text-body-sm pl-9 pr-3 py-1.5 rounded-lg border border-outline-variant/30 focus:border-primary focus:outline-none placeholder:text-outline text-label-code-sm" placeholder="Filtrer parmi les checkpoints, LoRA, VAE, ControlNet..." type="text"/>
+</div>
+</div>
+<!-- Filter Dropdowns -->
+<div class="flex items-center gap-2">
+<!-- Type Filter -->
+<div class="flex items-center gap-1.5 bg-surface-container px-2.5 py-1 rounded-lg border border-outline-variant/30 text-body-sm">
+<span class="text-outline text-label-code-sm">Type:</span>
+<select class="bg-transparent text-on-surface text-body-sm font-medium border-0 p-0 pr-5 focus:ring-0 cursor-pointer">
+<option class="bg-surface-container-high">Tous les types (142)</option>
+<option class="bg-surface-container-high">Checkpoints (18)</option>
+<option class="bg-surface-container-high">LoRA (94)</option>
+<option class="bg-surface-container-high">ControlNet (14)</option>
+<option class="bg-surface-container-high">VAE (6)</option>
+<option class="bg-surface-container-high">Upscalers (10)</option>
+</select>
+</div>
+<!-- Base Model Filter -->
+<div class="flex items-center gap-1.5 bg-surface-container px-2.5 py-1 rounded-lg border border-outline-variant/30 text-body-sm">
+<span class="text-outline text-label-code-sm">Base:</span>
+<select class="bg-transparent text-primary text-body-sm font-medium border-0 p-0 pr-5 focus:ring-0 cursor-pointer">
+<option class="bg-surface-container-high">Flux.2 Klein 4B</option>
+<option class="bg-surface-container-high">Flux.1 Dev</option>
+<option class="bg-surface-container-high">SDXL 1.0</option>
+<option class="bg-surface-container-high">Pony Diffusion</option>
+<option class="bg-surface-container-high">Toutes les bases</option>
+</select>
+</div>
+<button class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded" title="Inverser le tri">
+<span class="material-symbols-outlined text-[17px]">swap_vert</span>
+</button>
+</div>
+</div>
+<!-- Professional Dense Model Table -->
+<div class="flex-1 overflow-x-auto overflow-y-auto max-h-[calc(100vh-290px)]">
+<table class="w-full text-left text-body-sm border-collapse">
+<thead class="sticky top-0 bg-surface-container-low/95 backdrop-blur border-b border-outline-variant/30 text-[11px] font-label-code-sm text-outline uppercase tracking-wider z-10">
+<tr>
+<th class="py-2.5 px-3">Modèle / Nom Fichier</th>
+<th class="py-2.5 px-2">Type</th>
+<th class="py-2.5 px-2">Base Model</th>
+<th class="py-2.5 px-2">Taille</th>
+<th class="py-2.5 px-2">Emplacement Local</th>
+<th class="py-2.5 px-2">État</th>
+<th class="py-2.5 px-3 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/15 font-body-sm">
+<!-- Row 1: Base Checkpoint Klein -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-2.5 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-lg bg-surface-container overflow-hidden border border-primary/30 flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="High-contrast dark cinematic sci-fi render of a futuristic cyber female pilot generated with Flux 2 Klein 4B model, volumetric atmospheric glow and crisp skin textures." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhJW35csGvUiiPMtB_Rqh_jcprhjMXYtVaK1qD3u_fO4VDj-XswvjGcjCurnLlzRwHjfJphSeaEMlLHElZ8hgOe5lnqzVM8YyI1YixE3OEjXcco_XgLC5byGy_iFrLTt5qP61z9yxc-hn0Zukse1vtGTvfmYvZKTZmB8EUzW-NlaOYiZ6VI3ByLu_KoMwyoGi_llYPZKAqQSkOHdVMCg19tiP_PIZhRiSRCaDc_ogFVejwGCO1uIEhdFNOOUgBK4snT9Fwya9eqZQ"/>
+</div>
+<div>
+<div class="font-medium text-on-surface text-body-md flex items-center gap-1.5">
+<span>flux2-klein-4b-pruned.safetensors</span>
+<span class="material-symbols-outlined text-primary text-[14px]" title="Modèle Certifié">verified</span>
+</div>
+<div class="text-[11px] text-outline font-label-code-sm">SHA256: 7a8f...d309 • fp8 optimized</div>
+</div>
+</div>
+</td>
+<td class="py-2.5 px-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-label-code-sm font-semibold bg-primary-container/20 text-primary border border-primary/30">
+                  Checkpoint
+                </span>
+</td>
+<td class="py-2.5 px-2">
+<span class="text-on-surface font-label-code-sm text-[12px] font-medium">Flux.2 Klein 4B</span>
+</td>
+<td class="py-2.5 px-2 font-label-code-sm text-on-surface-variant">8.4 Go</td>
+<td class="py-2.5 px-2 font-label-code-sm text-outline text-[11px]">models/checkpoints/</td>
+<td class="py-2.5 px-2">
+<span class="inline-flex items-center gap-1 text-[11px] text-tertiary font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+                  Chargé (VRAM)
+                </span>
+</td>
+<td class="py-2.5 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="bg-primary/10 hover:bg-primary/20 text-primary px-2 py-1 rounded text-[11px] font-label-code-sm flex items-center gap-1 transition-colors" title="Charger dans l'éditeur ComfyUI">
+<span class="material-symbols-outlined text-[14px]">play_arrow</span>
+<span>Tester</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-on-surface transition-colors" title="Inspecter les métadonnées LoRA/Checkpoint">
+<span class="material-symbols-outlined text-[16px]">info</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Supprimer du disque">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: CyberGlow LoRA -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-2.5 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-lg bg-surface-container overflow-hidden border border-secondary-fixed/40 flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Intricate cyberpunk portrait illuminated by bioluminescent fiber-optic braids, neon cyan highlights, realistic skin pores, and gilded high-collar cyber uniform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4ERqgFgKnRfmtPnTNtMm-Tgv6ekOv4raRk0Gf3QpbqIYoVmYs2duHs3aBZuoYmAK4E4sazXJe7FGfuXKHWafPxgAByqllDsMG3BUaL_FvCHpq0bBrkRBPV99uqjUDWrvEhOkt2KID66BAQu4z1W7VyZl323yeBgprEK2UR1qOqp2jBbNVbbPialLZsbcDxWrAyQ_LoulKxZfzBPyQIAQ4JYLOt-TeodY8FjjircSIkJ9018WwVg6V7wuZ_bRGaNF9kCWqSuSxdjg"/>
+</div>
+<div>
+<div class="font-medium text-on-surface text-body-md flex items-center gap-1.5">
+<span>CyberGlow-NeonFibers-v1.2.safetensors</span>
+<span class="bg-surface-container-high text-secondary-fixed text-[10px] font-label-code-sm px-1.5 rounded">v1.2</span>
+</div>
+<div class="text-[11px] text-outline font-label-code-sm">Trigger: <code class="text-secondary-fixed font-mono">cyberglow braid, fiberoptic</code></div>
+</div>
+</div>
+</td>
+<td class="py-2.5 px-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-label-code-sm font-semibold bg-secondary-fixed/10 text-secondary-fixed border border-secondary-fixed/30">
+                  LoRA
+                </span>
+</td>
+<td class="py-2.5 px-2">
+<span class="text-on-surface font-label-code-sm text-[12px]">Flux.2 Klein 4B</span>
+</td>
+<td class="py-2.5 px-2 font-label-code-sm text-on-surface-variant">144 Mo</td>
+<td class="py-2.5 px-2 font-label-code-sm text-outline text-[11px]">models/loras/cyberpunk/</td>
+<td class="py-2.5 px-2">
+<span class="text-[11px] text-on-surface-variant">Prêt</span>
+</td>
+<td class="py-2.5 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="bg-surface-container hover:bg-surface-container-high text-on-surface px-2 py-1 rounded text-[11px] font-label-code-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[14px]">tune</span>
+<span>Poids (0.85)</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">info</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-error">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Editorial Fashion LoRA -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-2.5 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-lg bg-surface-container overflow-hidden border border-outline-variant/30 flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="High-fashion editorial photo of an haute-couture model with avant-garde dark structured blazer, dramatic Rembrandt lighting, and hyper-detailed studio shadows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEpiAYcHNle40LH1DQL9ahBO5ETHQDlJbDLpqJNsn8fpU89xiziXtI2C2rJLBs-7-u2UM3Fu036gP-2tTe-_ITT1UJq-aiwX58iaYMYwC1Vp8zFyy4p1IJRTRXJLL4eCqdHFNdbXHR5QbTLGmzeFHViWpT8LzVf6clHDWvvEKZBIiQ9SNJFB_YvUaYQie1cT24ICHHChjGOv-lmh18KQ2IscLvEd5S5Ve_o6GaBGzjRmDPSEkiLwjboqfdW4l42sGHbr8oi6pbTJY"/>
+</div>
+<div>
+<div class="font-medium text-on-surface text-body-md">HighFashion-Editorial-Lighting.safetensors</div>
+<div class="text-[11px] text-outline font-label-code-sm">Trigger: <code class="text-primary font-mono">editorial light, vogue style</code></div>
+</div>
+</div>
+</td>
+<td class="py-2.5 px-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-label-code-sm font-semibold bg-secondary-fixed/10 text-secondary-fixed border border-secondary-fixed/30">
+                  LoRA
+                </span>
+</td>
+<td class="py-2.5 px-2">
+<span class="text-on-surface font-label-code-sm text-[12px]">Flux.2 Klein 4B</span>
+</td>
+<td class="py-2.5 px-2 font-label-code-sm text-on-surface-variant">120 Mo</td>
+<td class="py-2.5 px-2 font-label-code-sm text-outline text-[11px]">models/loras/lighting/</td>
+<td class="py-2.5 px-2">
+<span class="text-[11px] text-on-surface-variant">Prêt</span>
+</td>
+<td class="py-2.5 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="bg-surface-container hover:bg-surface-container-high text-on-surface px-2 py-1 rounded text-[11px] font-label-code-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[14px]">tune</span>
+<span>Poids (1.0)</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">info</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-error">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4: RealismEngine Flux.1 Dev -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-2.5 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-lg bg-surface-container overflow-hidden border border-outline-variant/30 flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Macro photographic shot of realistic human skin textures, eye reflections, and cinematic soft golden hour light captured on 85mm prime lens." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhH5R00hyxPtiPq8MniLAKaIq3qETDxUQGrjXh8WCv2CZor_iqdAk-Q-kMZtUOqlGcKvHy_5L-7sJlZnhs2fBCmURcK0tohoxXM2_vofVQAhIJrUd9lkACr07MJYxOe3S1EgXo-uLgkWkX88ulbQTwQCn2hL5Qc8zrZwzOtJtXJwz5An7LMptEAT8dGDwUxedhMS7RCPzo_nM0OtsRsMDdEqe4vbpMti_G6wncZT1uLZXudn_AZy3Y4hcyB6hCNc0k6gR4TOMrBAg"/>
+</div>
+<div>
+<div class="font-medium text-on-surface text-body-md">RealismEngine-Flux-v3.safetensors</div>
+<div class="text-[11px] text-outline font-label-code-sm">Version 3.0 finetuned checkpoint</div>
+</div>
+</div>
+</td>
+<td class="py-2.5 px-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-label-code-sm font-semibold bg-primary-container/20 text-primary border border-primary/30">
+                  Checkpoint
+                </span>
+</td>
+<td class="py-2.5 px-2">
+<span class="text-on-surface font-label-code-sm text-[12px]">Flux.1 Dev</span>
+</td>
+<td class="py-2.5 px-2 font-label-code-sm text-on-surface-variant">11.2 Go</td>
+<td class="py-2.5 px-2 font-label-code-sm text-outline text-[11px]">models/checkpoints/</td>
+<td class="py-2.5 px-2">
+<span class="text-[11px] text-outline">Inactif</span>
+</td>
+<td class="py-2.5 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="bg-surface-container hover:bg-surface-container-high text-on-surface px-2 py-1 rounded text-[11px] font-label-code-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[14px]">play_arrow</span>
+<span>Tester</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">info</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-error">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 5: Flux Depth ControlNet -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-2.5 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-tertiary-container border border-tertiary/30 flex-shrink-0">
+<span class="material-symbols-outlined text-tertiary text-[20px]">layers</span>
+</div>
+<div>
+<div class="font-medium text-on-surface text-body-md">Flux-Depth-ControlNet-fp16.safetensors</div>
+<div class="text-[11px] text-outline font-label-code-sm">Midas / ZoeDepth compatible</div>
+</div>
+</div>
+</td>
+<td class="py-2.5 px-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-label-code-sm font-semibold bg-tertiary/15 text-tertiary border border-tertiary/30">
+                  ControlNet
+                </span>
+</td>
+<td class="py-2.5 px-2">
+<span class="text-on-surface font-label-code-sm text-[12px]">Flux.2 Klein</span>
+</td>
+<td class="py-2.5 px-2 font-label-code-sm text-on-surface-variant">1.45 Go</td>
+<td class="py-2.5 px-2 font-label-code-sm text-outline text-[11px]">models/controlnet/</td>
+<td class="py-2.5 px-2">
+<span class="text-[11px] text-on-surface-variant">Prêt</span>
+</td>
+<td class="py-2.5 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="bg-surface-container hover:bg-surface-container-high text-on-surface px-2 py-1 rounded text-[11px] font-label-code-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[14px]">account_tree</span>
+<span>Node</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">info</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-error">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 6: ClearVae -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-2.5 px-3">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary-container border border-outline-variant/30 flex-shrink-0">
+<span class="material-symbols-outlined text-primary text-[20px]">palette</span>
+</div>
+<div>
+<div class="font-medium text-on-surface text-body-md">ClearVae-fp8.safetensors</div>
+<div class="text-[11px] text-outline font-label-code-sm">Anti-artifact chrominance VAE</div>
+</div>
+</div>
+</td>
+<td class="py-2.5 px-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-label-code-sm font-semibold bg-primary/10 text-primary border border-primary/30">
+                  VAE
+                </span>
+</td>
+<td class="py-2.5 px-2">
+<span class="text-on-surface-variant font-label-code-sm text-[12px]">Multi-base</span>
+</td>
+<td class="py-2.5 px-2 font-label-code-sm text-on-surface-variant">335 Mo</td>
+<td class="py-2.5 px-2 font-label-code-sm text-outline text-[11px]">models/vae/</td>
+<td class="py-2.5 px-2">
+<span class="text-[11px] text-tertiary">Actif</span>
+</td>
+<td class="py-2.5 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="bg-surface-container hover:bg-surface-container-high text-on-surface px-2 py-1 rounded text-[11px] font-label-code-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[14px]">check</span>
+<span>Par défaut</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">info</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-error">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination & Count -->
+<div class="p-2.5 bg-surface-container-low border-t border-outline-variant/20 flex items-center justify-between text-[12px] font-label-code-sm text-on-surface-variant">
+<div>Affichage de 1 à 6 sur <strong>142 modèles</strong> installés</div>
+<div class="flex items-center gap-1">
+<button class="px-2 py-1 rounded bg-surface-container border border-outline-variant/30 text-on-surface hover:bg-surface-container-high transition-colors">Précédent</button>
+<span class="px-2 py-1 text-primary font-bold">1</span>
+<button class="px-2 py-1 rounded bg-surface-container border border-outline-variant/30 text-on-surface hover:bg-surface-container-high transition-colors">Suivant</button>
+</div>
+</div>
+</div>
+<!-- COLONNE DROITE : EXPLORATION CIVITAI & HUFFINGFACE INTÉGRÉE (4 COLS) -->
+<div class="col-span-12 lg:col-span-4 flex flex-col bg-surface-container-lowest border border-outline-variant/20 rounded-xl overflow-hidden shadow-2xl">
+<!-- Civitai Panel Header -->
+<div class="p-3 bg-surface-container-low/90 border-b border-outline-variant/20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary-fixed"></span>
+<span class="font-headline-md text-[15px] font-bold text-on-surface">Découvrir sur Civitai</span>
+<span class="bg-secondary-fixed/10 text-secondary-fixed text-[10px] font-label-code-sm font-semibold px-2 py-0.5 rounded-full border border-secondary-fixed/20">Flux.2 Ready</span>
+</div>
+<div class="flex items-center gap-1 text-[11px] font-label-code-sm">
+<button class="text-primary font-medium hover:underline">Populaires</button>
+<span class="text-outline">/</span>
+<button class="text-on-surface-variant hover:underline">Nouveaux</button>
+</div>
+</div>
+<!-- Discovery Cards Stack -->
+<div class="flex-1 overflow-y-auto p-3 space-y-3 max-h-[calc(100vh-290px)]">
+<!-- Card 1: LoRA Cyberpunk Neon -->
+<div class="bg-surface-container-low/70 border border-outline-variant/30 rounded-xl overflow-hidden hover:border-primary/50 transition-all group">
+<div class="relative h-32 w-full overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Dark aesthetic futuristic character concept art with glowing cyan hair accents, high tech dark leather uniform, in an ultra-modern hangar setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDpJjD4Q9b3gXxBa4THnfZKNY2LbsA311wjA_wTQVtLHriCp3259iclXFUenbheKK4qdA58GPmg9NXmexxnFs6vLFo4Pw8onkpCkxZnH-bc0z-9YZaWVqjMnbEQMMdAc2chepw_08SBVnY_9_HL2NiAvQAuqdIyn3nzh-yo40-p4TyepyBm92QiVB4Gk2x86PKVseSmTQtxSfEUmnSMHc8yPDC_QcKOS9euuRHz9vWjHwg3TFjhPJa-6X_I-7IG0n1Cxuk7Y3FLZwM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+<span class="absolute top-2 left-2 bg-background/80 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-label-code-sm text-secondary-fixed border border-secondary-fixed/30 font-semibold">
+              LoRA • Flux.2
+            </span>
+<div class="absolute bottom-2 left-2 flex items-center gap-1.5 text-on-surface text-body-sm font-medium">
+<span class="material-symbols-outlined text-[15px] text-amber-400 fill-icon">star</span>
+<span class="text-[12px] font-label-code-sm font-bold">4.96</span>
+<span class="text-[11px] text-outline">(1.2k avis)</span>
+</div>
+<span class="absolute bottom-2 right-2 text-outline text-[11px] font-label-code-sm">135 Mo</span>
+</div>
+<div class="p-3">
+<div class="flex items-center justify-between">
+<h4 class="font-headline-md text-[14px] text-on-surface font-semibold group-hover:text-primary transition-colors">NeoTokyo-Atmosphere-v2</h4>
+<span class="text-[11px] text-outline font-label-code-sm">par @Kaelen_AI</span>
+</div>
+<p class="text-[12px] text-on-surface-variant mt-1 line-clamp-2">Éclairage cyberpunk réaliste, pluie fine, néons volumétriques calibrés pour le moteur Klein 4B.</p>
+<div class="mt-2.5 flex items-center justify-between pt-2 border-t border-outline-variant/20">
+<div class="flex gap-1">
+<span class="text-[10px] bg-surface-container px-1.5 py-0.5 rounded text-outline font-label-code-sm">#Cyberpunk</span>
+<span class="text-[10px] bg-surface-container px-1.5 py-0.5 rounded text-outline font-label-code-sm">#Lighting</span>
+</div>
+<button class="bg-primary hover:bg-primary-fixed-dim text-on-primary-container px-2.5 py-1 rounded text-body-sm font-medium flex items-center gap-1 text-[11px] font-label-code-sm transition-all active:scale-95">
+<span class="material-symbols-outlined text-[14px]">download</span>
+<span>Télécharger</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 2: Editorial Portrait LoRA -->
+<div class="bg-surface-container-low/70 border border-outline-variant/30 rounded-xl overflow-hidden hover:border-primary/50 transition-all group">
+<div class="relative h-32 w-full overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Chiaroscuro studio fashion portrait of an elegant woman with dramatic shadows, velvet texture apparel, and micro-detailed skin features on pure dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWfkBa-mNDEAGLKNUjxeg1O6zi9QfBZTAL11NMe2Fn57TX8CTp6Ji9x-36IL5dWdlu2Zz7fbZTus1EQGKCCdRDaJQXeHHe29M835ALoAil7ixXoFsiATeZjeCs9cqFjCZj2ZfKFC-ezvWKelOBPQXSGav53odLm-zSlRdiXC-HEJyAbUE6vCQRCSZKQAxhSevxGfYYGE8wR_LBOEQECxz2CMAHX6H4rUGdO9tlYsYzOK1JsRE4Ofo0-NJHgm2Ua9jQux1fZ95dw0c"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+<span class="absolute top-2 left-2 bg-background/80 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-label-code-sm text-primary border border-primary/30 font-semibold">
+              LoRA • Flux.2 / SDXL
+            </span>
+<div class="absolute bottom-2 left-2 flex items-center gap-1.5 text-on-surface text-body-sm font-medium">
+<span class="material-symbols-outlined text-[15px] text-amber-400 fill-icon">star</span>
+<span class="text-[12px] font-label-code-sm font-bold">4.89</span>
+<span class="text-[11px] text-outline">(840)</span>
+</div>
+<span class="absolute bottom-2 right-2 text-outline text-[11px] font-label-code-sm">118 Mo</span>
+</div>
+<div class="p-3">
+<div class="flex items-center justify-between">
+<h4 class="font-headline-md text-[14px] text-on-surface font-semibold group-hover:text-primary transition-colors">Cinematic-Dark-Moody-Vogue</h4>
+<span class="text-[11px] text-outline font-label-code-sm">par @StableArtisan</span>
+</div>
+<p class="text-[12px] text-on-surface-variant mt-1 line-clamp-2">Textures textiles précises, micro-contrastes et teintes sombres haute couture pour portraits pro.</p>
+<div class="mt-2.5 flex items-center justify-between pt-2 border-t border-outline-variant/20">
+<div class="flex gap-1">
+<span class="text-[10px] bg-surface-container px-1.5 py-0.5 rounded text-outline font-label-code-sm">#Fashion</span>
+<span class="text-[10px] bg-surface-container px-1.5 py-0.5 rounded text-outline font-label-code-sm">#Studio</span>
+</div>
+<button class="bg-primary hover:bg-primary-fixed-dim text-on-primary-container px-2.5 py-1 rounded text-body-sm font-medium flex items-center gap-1 text-[11px] font-label-code-sm transition-all active:scale-95">
+<span class="material-symbols-outlined text-[14px]">download</span>
+<span>Télécharger</span>
+</button>
+</div>
+</div>
+</div>
+<!-- HuggingFace Sync Quick Box -->
+<div class="p-3 rounded-xl bg-surface-container-high/40 border border-outline-variant/30 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-fixed text-[20px]">hub</span>
+<div>
+<div class="text-[12px] font-semibold text-on-surface">Synchroniser HuggingFace Repo</div>
+<div class="text-[10px] text-outline">Import direct via token d'accès HF</div>
+</div>
+</div>
+<button class="text-[11px] font-label-code-sm text-primary hover:text-primary-fixed font-medium px-2 py-1 rounded bg-primary/10">Lier</button>
+</div>
+</div>
+</div>
+</div>
+<!-- 5. ANCHORED BOTTOM DOWNLOADS BAR (Background downloads queue) -->
+<aside class="fixed bottom-0 left-0 w-full z-40 bg-surface-container-low/95 backdrop-blur-md border-t border-outline-variant/30 shadow-lg px-space-xl py-2 flex flex-col md:flex-row items-center justify-between gap-3">
+<!-- Collapsible Title & Summary -->
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2 text-primary font-medium font-headline-md text-[14px]">
+<span class="material-symbols-outlined text-[18px] animate-bounce">downloading</span>
+<span>Téléchargements en arrière-plan</span>
+</div>
+<span class="bg-primary/20 text-primary border border-primary/30 text-[10px] font-label-code-sm px-2 py-0.5 rounded-full">
+        2 actifs • 1 terminé
+      </span>
+<div class="h-3 w-[1px] bg-outline-variant/40 hidden md:block"></div>
+<span class="text-outline text-[11px] font-label-code-sm hidden md:inline">Vitesse globale : <strong class="text-tertiary">110 Mo/s</strong></span>
+</div>
+<!-- Active Transfers Cards (Inline responsive) -->
+<div class="flex items-center gap-4 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+<!-- Transfer 1 (In Progress 58%) -->
+<div class="bg-surface-container px-3 py-1.5 rounded-lg border border-outline-variant/30 min-w-[260px] flex flex-col gap-1">
+<div class="flex items-center justify-between text-[11px] font-label-code-sm">
+<span class="text-on-surface font-medium truncate max-w-[150px]">Flux-Cinematic-Grain-LoRA</span>
+<span class="text-tertiary">58% • 42 Mo/s</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-gradient-to-r from-primary to-secondary-fixed h-full rounded-full transition-all duration-300" style="width: 58%"></div>
+</div>
+<div class="flex items-center justify-between text-[10px] text-outline font-label-code-sm">
+<span>84 Mo / 144 Mo</span>
+<span>ETA: 1m 12s</span>
+</div>
+</div>
+<!-- Transfer 2 (In Progress 32%) -->
+<div class="bg-surface-container px-3 py-1.5 rounded-lg border border-outline-variant/30 min-w-[260px] flex flex-col gap-1">
+<div class="flex items-center justify-between text-[11px] font-label-code-sm">
+<span class="text-on-surface font-medium truncate max-w-[150px]">SDXL-Turbo-HyperDenoise</span>
+<span class="text-secondary-fixed">32% • 68 Mo/s</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-gradient-to-r from-secondary-fixed to-primary-container h-full rounded-full transition-all duration-300" style="width: 32%"></div>
+</div>
+<div class="flex items-center justify-between text-[10px] text-outline font-label-code-sm">
+<span>2.1 Go / 6.4 Go</span>
+<span>ETA: 1m 05s</span>
+</div>
+</div>
+<!-- Transfer 3 (Finished / Ready) -->
+<div class="bg-surface-container/60 px-3 py-1.5 rounded-lg border border-tertiary/30 min-w-[220px] flex items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-[18px]">check_circle</span>
+<div>
+<div class="text-[11px] font-medium text-on-surface truncate max-w-[120px]">Flux-Anatomy-Fixer-v2</div>
+<div class="text-[10px] text-tertiary font-label-code-sm">Installé dans models/loras/</div>
+</div>
+</div>
+<button class="bg-tertiary/15 hover:bg-tertiary/25 text-tertiary text-[10px] font-label-code-sm px-2 py-1 rounded transition-colors font-semibold">
+          Recharger
+        </button>
+</div>
+</div>
+<!-- Collapse / Expand Icon -->
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors" title="Masquer le panneau">
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</aside>
+<!-- Interactive feedback script for micro-interactions -->
+<script>
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        // Prevent accidental default jumps
+        if (this.getAttribute('href') === '#') e.preventDefault();
+      });
+    });
+  </script>
+</body></html>

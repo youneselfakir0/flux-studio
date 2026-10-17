@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Flux Studio — Vision &amp; Interrogateur Image vers Description</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Fonts: Space Grotesk, Inter, JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "primary": "#cabeff",
+            "on-primary": "#31009a",
+            "primary-fixed-dim": "#cabeff",
+            "background": "#111317",
+            "secondary-fixed": "#7df4ff",
+            "outline": "#938ea1",
+            "on-error-container": "#ffdad6",
+            "surface-container": "#1e2023",
+            "on-tertiary-container": "#00311f",
+            "on-tertiary": "#003824",
+            "on-error": "#690005",
+            "tertiary-container": "#00a572",
+            "surface-container-lowest": "#0c0e11",
+            "surface-container-highest": "#333538",
+            "error": "#ffb4ab",
+            "outline-variant": "#484555",
+            "on-tertiary-fixed": "#002113",
+            "tertiary-fixed": "#6ffbbe",
+            "on-surface": "#e2e2e6",
+            "surface-dim": "#111317",
+            "secondary-container": "#00eefc",
+            "surface": "#111317",
+            "on-primary-fixed-variant": "#4816cb",
+            "inverse-primary": "#603ce2",
+            "surface-container-high": "#282a2d",
+            "surface-tint": "#cabeff",
+            "on-surface-variant": "#c9c4d8",
+            "on-background": "#e2e2e6",
+            "secondary-fixed-dim": "#00dbe9",
+            "tertiary": "#4edea3",
+            "surface-bright": "#37393d",
+            "on-primary-fixed": "#1c0062",
+            "error-container": "#93000a",
+            "secondary": "#d3fbff",
+            "on-tertiary-fixed-variant": "#005236",
+            "on-secondary-fixed": "#002022",
+            "tertiary-fixed-dim": "#4edea3",
+            "surface-variant": "#333538",
+            "surface-container-low": "#1a1c1f",
+            "on-secondary-container": "#00686f",
+            "on-secondary-fixed-variant": "#004f54",
+            "on-primary-container": "#2a0088",
+            "inverse-on-surface": "#2f3034",
+            "inverse-surface": "#e2e2e6",
+            "primary-container": "#947dff",
+            "primary-fixed": "#e6deff",
+            "on-secondary": "#00363a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "margin": "1.5rem",
+            "space-xl": "2rem",
+            "space-sm": "0.5rem",
+            "space-md": "0.875rem",
+            "space-lg": "1.25rem",
+            "gutter": "1rem"
+          },
+          "fontFamily": {
+            "body-md": ["Inter", "sans-serif"],
+            "body-lg": ["Inter", "sans-serif"],
+            "headline-md": ["Space Grotesk", "sans-serif"],
+            "label-code-lg": ["JetBrains Mono", "monospace"],
+            "headline-lg": ["Space Grotesk", "sans-serif"],
+            "label-code-sm": ["JetBrains Mono", "monospace"],
+            "headline-xl-mobile": ["Space Grotesk", "sans-serif"],
+            "body-sm": ["Inter", "sans-serif"],
+            "headline-xl": ["Space Grotesk", "sans-serif"]
+          },
+          "fontSize": {
+            "body-md": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "body-lg": ["15px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "headline-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "label-code-lg": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+            "label-code-sm": ["11px", { "lineHeight": "14px", "fontWeight": "400" }],
+            "headline-xl-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "headline-xl": ["36px", { "lineHeight": "44px", "fontWeight": "700" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      vertical-align: middle;
+      font-size: 19px;
+    }
+    .material-symbols-outlined.fill-icon {
+      font-variation-settings: 'FILL' 1;
+    }
+    /* Custom subtle scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0c0e11;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #333538;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #484555;
+    }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface font-body-md antialiased min-h-screen flex flex-col selection:bg-primary-container selection:text-white">
+<!-- ================= TOPNAVBAR (Shared Component Implementation) ================= -->
+<header class="bg-surface/80 dark:bg-surface/80 backdrop-blur-md text-primary dark:text-primary docked full-width top-0 sticky z-50 border-b border-outline-variant/30 dark:border-outline-variant/30 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]">
+<div class="flex items-center justify-between px-6 py-2.5 w-full">
+<!-- Brand & Search cluster -->
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2.5 cursor-pointer">
+<span class="text-headline-md font-headline-md text-primary dark:text-primary tracking-tight font-semibold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-2xl" data-icon="auto_awesome">auto_awesome</span>
+            Flux Studio
+          </span>
+<span class="bg-surface-container-high text-primary px-1.5 py-0.5 rounded text-[10px] font-label-code-sm font-semibold tracking-wider border border-outline-variant/40">
+            v2.4 Klein
+          </span>
+</div>
+<!-- Left Search bar -->
+<div class="relative w-64 hidden xl:block">
+<span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-outline-variant text-[17px]" data-icon="search">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg pl-9 pr-3 py-1.5 text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary-container transition-colors" placeholder="Rechercher modèles, prompts..." type="text"/>
+<span class="absolute right-2.5 top-1/2 -translate-y-1/2 font-label-code-sm text-[10px] text-outline px-1 rounded bg-surface-container border border-outline-variant/30">⌘K</span>
+</div>
+</div>
+<!-- Navigation links (JSON exact matches, "Image" is active) -->
+<nav class="hidden md:flex items-center gap-6 text-body-md">
+<a class="text-on-surface-variant dark:text-on-surface-variant pb-1 font-normal transition-colors hover:text-primary dark:hover:text-primary hover:bg-surface-container-high/50 dark:hover:bg-surface-container-high/50 px-2 rounded" href="#">
+          Prompts
+        </a>
+<a class="text-on-surface-variant dark:text-on-surface-variant pb-1 font-normal transition-colors hover:text-primary dark:hover:text-primary hover:bg-surface-container-high/50 dark:hover:bg-surface-container-high/50 px-2 rounded" href="#">
+          ComfyUI
+        </a>
+<a class="text-on-surface-variant dark:text-on-surface-variant pb-1 font-normal transition-colors hover:text-primary dark:hover:text-primary hover:bg-surface-container-high/50 dark:hover:bg-surface-container-high/50 px-2 rounded" href="#">
+          Workflows
+        </a>
+<a class="text-primary dark:text-primary border-b-2 border-primary pb-1 font-semibold px-2" href="#">
+          Image
+        </a>
+<a class="text-on-surface-variant dark:text-on-surface-variant pb-1 font-normal transition-colors hover:text-primary dark:hover:text-primary hover:bg-surface-container-high/50 dark:hover:bg-surface-container-high/50 px-2 rounded" href="#">
+          Profil
+        </a>
+</nav>
+<!-- Trailing cluster (Actions, Credits, Icons, Profile) -->
+<div class="flex items-center gap-3">
+<!-- Live status badge -->
+<div class="hidden lg:flex items-center gap-2 px-2.5 py-1 bg-surface-container-low rounded-full border border-tertiary-container/30">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="font-label-code-sm text-[11px] text-tertiary font-medium">Flux.2 Klein 4B Online (18ms)</span>
+</div>
+<!-- Trailing secondary action -->
+<div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-lg border border-outline-variant/30 text-on-surface-variant font-label-code-sm">
+<span class="material-symbols-outlined text-secondary-fixed text-[16px]" data-icon="token">token</span>
+<span class="font-semibold text-on-surface">1 450 Credits</span>
+</div>
+<!-- Trailing icon actions -->
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high/50 transition-colors" title="Paramètres">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high/50 transition-colors relative" title="Notifications">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="w-1.5 h-1.5 bg-primary-container rounded-full absolute top-1 right-1"></span>
+</button>
+<!-- Trailing primary action -->
+<button class="flex items-center gap-1.5 bg-primary-container hover:bg-inverse-primary text-white px-3.5 py-1.5 rounded-lg font-headline-md text-body-md font-semibold shadow-[0_0_18px_rgba(148,125,255,0.35)] transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-[17px]" data-icon="auto_awesome">auto_awesome</span>
+<span>Analyser</span>
+</button>
+<!-- User profile avatar -->
+<div class="flex items-center pl-1 border-l border-outline-variant/30">
+<img alt="Studio Creator Profile Avatar" class="w-7 h-7 rounded-full object-cover ring-1 ring-primary/40" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqrcHvKD0N2sRrTBuhyJhgV51UqLFx24jho3SV90xmEdd8S7dxBbsdPK_0HbanDYWJghRrLf74TD2p2WZjfMmEgMyx-uKE-DRA4rRiCdiTe-rkS4Vh_NgZ0PKxibpY-8K-s1Xx4IfsQ2LevcMvD3fZTAtHAlnDBzpvy7LvZp89NEGzslE0ujJGnY3f6SE0dVlDRFBtjnWFqJzRzFZehrN_BGGdqm6P1ogZ9_c4EXaG8Z1OqfGZT8DBB1Q4j-5PlIPEsaGH65N42-U"/>
+</div>
+</div>
+</div>
+</header>
+<!-- ================= SUB-BAR / BREADCRUMB & METRICS ================= -->
+<div class="bg-surface-container-low/70 border-b border-outline-variant/20 px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-body-sm backdrop-blur-sm">
+<div class="flex items-center gap-2">
+<span class="text-outline">Flux Studio</span>
+<span class="text-outline-variant">/</span>
+<span class="text-outline">Vision Studio</span>
+<span class="text-outline-variant">/</span>
+<span class="text-primary font-medium flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px]" data-icon="center_focus_strong">center_focus_strong</span>
+        Image vers description (Interrogateur VLM)
+      </span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1.5 bg-surface-container px-2.5 py-1 rounded text-outline font-label-code-sm text-[11px] border border-outline-variant/30">
+<span class="material-symbols-outlined text-secondary-fixed text-[14px]" data-icon="memory">memory</span>
+<span>VRAM Vision allouée : <strong class="text-on-surface">8.2 Go</strong> / 24 Go (RTX 4090)</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="px-2.5 py-1 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface text-body-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[15px]" data-icon="history">history</span>
+          Historique
+        </button>
+<button class="px-2.5 py-1 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface text-body-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[15px]" data-icon="layers">layers</span>
+          Mode Batch
+        </button>
+<button class="px-2.5 py-1 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface text-body-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[15px]" data-icon="tune">tune</span>
+          Presets VLM
+        </button>
+</div>
+</div>
+</div>
+<!-- ================= MAIN STUDIO WORKSPACE (2 Balanced Columns) ================= -->
+<main class="flex-1 w-full max-w-[1720px] mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden">
+<!-- ================= LEFT COLUMN: SOURCE IMAGE & DROP ZONE (5 Cols) ================= -->
+<div class="lg:col-span-5 flex flex-col gap-5">
+<!-- Section Title & Meta Specs -->
+<div class="flex items-center justify-between pb-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]" data-icon="photo_camera_front">photo_camera_front</span>
+<h2 class="text-headline-md font-headline-md text-on-surface tracking-tight">Image source &amp; analyse visuelle</h2>
+</div>
+<span class="font-label-code-sm text-[11px] text-tertiary bg-tertiary-container/15 px-2 py-0.5 rounded border border-tertiary/30">
+          1200 × 896 px • 2.4 Mo • PNG
+        </span>
+</div>
+<!-- High-Fidelity Loaded Image Canvas with Overlay Actions -->
+<div class="relative group rounded-2xl overflow-hidden bg-surface-container-low border border-outline-variant/30 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]">
+<div class="aspect-[4/3] w-full bg-surface-container-lowest overflow-hidden flex items-center justify-center relative">
+<!-- Referenced User Portrait Image -->
+<img alt="Portrait cinématographique cyberpunk élégant avec dorures et accents cyan" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.01]" src="https://lh3.googleusercontent.com/aida/AEtjO1WkruXDql_y17kRvjkPB_yEy2DeirP9E2A8pAWtfz49h3LivltxKq1quotQFNpIEhvUriUgzy9mbrKC08N68f-4uQIgiRKYNTS2rfNCigqE6nlwK-3_T9yGWhTUBtLZWPBIwcrE86FOHV7SodCEsmXGT3Q4gK0qGzkFUCXBmy-hKriMUZAreNUu4WL3FXWgWoc0lH6rzzoIgWq6gRcaixxQB4Q1LGsgVHuZdAgfpfhvayl4sAMttqH6ynQ"/>
+<!-- Image Top Bar Chips -->
+<div class="absolute top-3 left-3 flex items-center gap-2">
+<span class="bg-surface/80 backdrop-blur-md text-white text-[11px] font-label-code-sm px-2.5 py-1 rounded-md border border-white/10 shadow-sm flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span> 4:3 Ratio
+            </span>
+<span class="bg-surface/80 backdrop-blur-md text-white text-[11px] font-label-code-sm px-2.5 py-1 rounded-md border border-white/10 shadow-sm">
+              RGB 8-bit
+            </span>
+</div>
+<!-- Hover Overlay Controls -->
+<div class="absolute inset-0 bg-surface-container-lowest/40 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px] flex items-center justify-center gap-3">
+<button class="bg-surface-container/90 hover:bg-surface-container-high text-on-surface px-3 py-1.5 rounded-lg border border-outline-variant/40 text-body-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[16px]" data-icon="swap_horiz">swap_horiz</span>
+              Remplacer
+            </button>
+<button class="bg-surface-container/90 hover:bg-surface-container-high text-on-surface px-3 py-1.5 rounded-lg border border-outline-variant/40 text-body-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[16px]" data-icon="crop">crop</span>
+              Recadrer
+            </button>
+<button class="bg-surface-container/90 hover:bg-surface-container-high text-on-surface p-1.5 rounded-lg border border-outline-variant/40 shadow-lg active:scale-95 transition-all" title="Inspecter en plein écran">
+<span class="material-symbols-outlined text-[18px]" data-icon="zoom_in">zoom_in</span>
+</button>
+</div>
+</div>
+<!-- Technical Badges Strip under Image -->
+<div class="p-3 bg-surface-container border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-3 text-body-sm">
+<div class="flex items-center gap-2">
+<span class="font-label-code-sm text-[11px] text-outline">Palette dominante :</span>
+<div class="flex items-center gap-1.5">
+<div class="w-4 h-4 rounded-full border border-white/20 bg-[#10141f]" title="#10141f (Bleu sombre profond)"></div>
+<div class="w-4 h-4 rounded-full border border-white/20 bg-[#00f2fe]" title="#00f2fe (Cyan luminescent)"></div>
+<div class="w-4 h-4 rounded-full border border-white/20 bg-[#cfa159]" title="#cfa159 (Or patiné broderie)"></div>
+<div class="w-4 h-4 rounded-full border border-white/20 bg-[#090a0d]" title="#090a0d (Noir onyx)"></div>
+<div class="w-4 h-4 rounded-full border border-white/20 bg-[#7c5cff]" title="#7c5cff (Halo pourpre)"></div>
+</div>
+</div>
+<div class="flex items-center gap-3 font-label-code-sm text-[11px]">
+<span class="text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-tertiary" data-icon="face">face</span>
+              Visage détecté (99.4%)
+            </span>
+<span class="text-outline">|</span>
+<span class="text-on-surface-variant">Focus: Yeux / Profil</span>
+</div>
+</div>
+</div>
+<!-- Modern Drag & Drop Upload Zone -->
+<div class="border-2 border-dashed border-primary/30 hover:border-primary/80 bg-surface-container-lowest/60 hover:bg-surface-container-low/40 rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all cursor-pointer group">
+<div class="w-12 h-12 rounded-xl bg-surface-container-high/60 group-hover:bg-primary-container/20 flex items-center justify-center mb-3 transition-colors">
+<span class="material-symbols-outlined text-primary text-2xl group-hover:scale-110 transition-transform" data-icon="cloud_upload">cloud_upload</span>
+</div>
+<p class="font-headline-md text-body-lg font-semibold text-on-surface mb-1">
+          Déposez une nouvelle image ici
+        </p>
+<p class="text-body-sm text-on-surface-variant max-w-sm mb-4">
+          Glissez-déposez un fichier JPG, PNG ou WEBP (max. 50 Mo) ou <span class="text-primary underline cursor-pointer">Parcourir vos fichiers</span>
+</p>
+<!-- Fast Shortcut Badges -->
+<div class="flex flex-wrap items-center justify-center gap-2">
+<span class="px-2.5 py-1 bg-surface-container-high/70 hover:bg-surface-container-high rounded text-[11px] font-label-code-sm text-outline-variant hover:text-on-surface transition-colors flex items-center gap-1 border border-outline-variant/30">
+<span class="material-symbols-outlined text-[13px]" data-icon="content_paste">content_paste</span> Coller (Ctrl+V)
+          </span>
+<span class="px-2.5 py-1 bg-surface-container-high/70 hover:bg-surface-container-high rounded text-[11px] font-label-code-sm text-outline-variant hover:text-on-surface transition-colors flex items-center gap-1 border border-outline-variant/30">
+<span class="material-symbols-outlined text-[13px]" data-icon="link">link</span> URL Civitai / HuggingFace
+          </span>
+</div>
+</div>
+</div>
+<!-- ================= RIGHT COLUMN: VLM CONTROLS & GENERATED OUTPUTS (7 Cols) ================= -->
+<div class="lg:col-span-7 flex flex-col gap-5">
+<!-- Model Selector & Fast Parameter Controls Card -->
+<div class="bg-surface-container-low rounded-2xl p-4 lg:p-5 border border-outline-variant/30 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+<div>
+<label class="block font-headline-md text-body-sm text-outline mb-1">Modèle Vision VLM</label>
+<div class="relative">
+<select class="w-full sm:w-80 bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2 text-body-md text-on-surface font-medium focus:outline-none focus:border-primary-container pr-8 cursor-pointer">
+<option selected="">Qwen2-VL 72B Instruct (Recommandé)</option>
+<option>JoyCaption Alpha (Spécialisé Flux.2)</option>
+<option>LLaVA-NeXT 34B Pro</option>
+<option>Florence-2 Large (Ultra Rapide)</option>
+</select>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-tertiary-container/15 text-tertiary border border-tertiary/30 font-label-code-sm text-[11px]">
+              Local (Ollama/vLLM)
+            </span>
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-primary font-label-code-sm text-[11px] border border-outline-variant/40">
+              Quantisé FP8
+            </span>
+</div>
+</div>
+<!-- Sliders & Toggle Controls Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-outline-variant/20 items-end">
+<!-- Slider 1: Description Length -->
+<div>
+<div class="flex justify-between items-center text-body-sm mb-1.5">
+<span class="text-outline">Précision VLM</span>
+<span class="font-label-code-sm text-primary">Détaillé</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden relative">
+<div class="bg-gradient-to-r from-primary-container to-secondary-fixed h-full w-[85%] rounded-full"></div>
+</div>
+</div>
+<!-- Slider 2: Temperature -->
+<div>
+<div class="flex justify-between items-center text-body-sm mb-1.5">
+<span class="text-outline">Température</span>
+<span class="font-label-code-sm text-secondary-fixed">0.20</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden relative">
+<div class="bg-gradient-to-r from-primary-container to-secondary-fixed h-full w-[25%] rounded-full"></div>
+</div>
+</div>
+<!-- Toggle: Tags ComfyUI -->
+<div class="flex items-center justify-between sm:justify-end gap-3 pb-0.5">
+<span class="text-body-sm text-on-surface-variant">Tags ComfyUI</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+</div>
+<!-- Prominent Run Action Button -->
+<div class="mt-4 pt-3 border-t border-outline-variant/20 flex justify-end">
+<button class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary-container hover:bg-inverse-primary text-white font-headline-md text-body-md font-semibold flex items-center justify-center gap-2 shadow-[0_0_24px_rgba(148,125,255,0.4)] active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-[19px]" data-icon="neurology">neurology</span>
+<span>Régénérer l'analyse VLM</span>
+<span class="bg-on-primary-container/60 text-primary-fixed text-[11px] font-label-code-sm px-2 py-0.5 rounded-full ml-1">1.14s</span>
+</button>
+</div>
+</div>
+<!-- Structured Markdown Description Card -->
+<div class="bg-surface-container-low rounded-2xl border border-outline-variant/30 flex flex-col overflow-hidden shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]">
+<!-- Header with Tabs and Fast Action -->
+<div class="px-4 py-2.5 bg-surface-container flex items-center justify-between border-b border-outline-variant/20">
+<div class="flex items-center gap-3">
+<button class="text-body-sm font-semibold text-primary border-b-2 border-primary pb-1 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="description">description</span>
+              Description Markdown
+            </button>
+<button class="text-body-sm font-normal text-outline hover:text-on-surface transition-colors pb-1 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="sell">sell</span>
+              Tags bruts (Booru)
+            </button>
+</div>
+<button class="text-body-sm text-outline hover:text-primary transition-colors flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[15px]" data-icon="content_copy">content_copy</span>
+<span>Copier</span>
+</button>
+</div>
+<!-- Formatted Markdown Content -->
+<div class="p-4 lg:p-5 text-body-md text-on-surface-variant space-y-2.5 leading-relaxed bg-surface-container-low/60">
+<div class="flex items-start gap-2">
+<span class="text-primary font-semibold min-w-[105px]">Personnage :</span>
+<span class="text-on-surface">Femme élégante d'ascendance africaine, coiffure tressée sculpturale ornée de fibres optiques subtilement luminescentes bleu cyan, regard assuré et intense, maquillage or métallique sur les paupières.</span>
+</div>
+<div class="flex items-start gap-2">
+<span class="text-primary font-semibold min-w-[105px]">Style :</span>
+<span class="text-on-surface">Photographie haute couture futuriste, esthétique cyberpunk raffinée, rendu photoréaliste 8k hyperdétaillé, textures de cuir noir et broderies fil d'or ciselées.</span>
+</div>
+<div class="flex items-start gap-2">
+<span class="text-primary font-semibold min-w-[105px]">Lumière :</span>
+<span class="text-on-surface">Éclairage studio dramatique avec rim light néon cyan et reflets dorés chauds en contre-jour, ombres douces et contrastées.</span>
+</div>
+<div class="flex items-start gap-2">
+<span class="text-primary font-semibold min-w-[105px]">Cadrage :</span>
+<span class="text-on-surface">Plan moyen rapproché (close-up portrait), objectif 85mm f/1.4, profondeur de champ ultra-courte (bokeh cinématique avec interfaces holographiques floues en arrière-plan).</span>
+</div>
+<div class="flex items-start gap-2">
+<span class="text-primary font-semibold min-w-[105px]">Ambiance :</span>
+<span class="text-on-surface">Atmosphère luxueuse, technologique et mystérieuse, cockpit ou passerelle de commandement néo-tokyo.</span>
+</div>
+</div>
+</div>
+<!-- Suggested Flux Prompt Card (Optimized for Flux.2 Klein / Dev) -->
+<div class="bg-surface-container-low rounded-2xl border border-outline-variant/30 flex flex-col overflow-hidden shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]">
+<!-- Header -->
+<div class="px-4 py-2.5 bg-surface-container flex items-center justify-between border-b border-outline-variant/20">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="bolt">bolt</span>
+<span class="font-headline-md text-body-md font-semibold text-on-surface">Prompt Flux suggéré (Optimisé Klein / Dev)</span>
+</div>
+<span class="font-label-code-sm text-[11px] text-secondary-fixed bg-secondary-fixed/10 px-2 py-0.5 rounded border border-secondary-fixed/20">
+            Tokens : 68 / 256
+          </span>
+</div>
+<!-- Code Block with Syntax Coloring -->
+<div class="p-4 bg-surface-container-lowest font-label-code-sm text-body-sm leading-relaxed text-on-surface overflow-x-auto">
+<p class="select-all">
+<span class="text-secondary-fixed font-semibold">[photorealistic:1.2]</span> close-up cinematic portrait of an elegant futuristic woman, intricate braided crown hairstyle embedded with glowing cyan optic fibers, confident gaze with metallic gold eyeliner, wearing a dark techwear high-collar bodysuit with <span class="text-primary font-semibold">[ornate gold embroidery:1.15]</span>, glowing teal circuitry accents, dark cyberpunk bridge interior, soft volumetric neon rim lighting, 85mm lens, f/1.4 shallow depth of field, masterpiece, highly detailed skin texture, raytraced reflections.
+          </p>
+</div>
+<!-- ComfyUI & Export Buttons Footer -->
+<div class="p-3 bg-surface-container flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/20">
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface text-body-sm flex items-center gap-1.5 transition-colors border border-outline-variant/30">
+<span class="material-symbols-outlined text-[16px]" data-icon="content_copy">content_copy</span>
+<span>Copier le prompt</span>
+</button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface text-body-sm flex items-center gap-1.5 transition-colors border border-outline-variant/30">
+<span class="material-symbols-outlined text-[16px]" data-icon="bookmark_add">bookmark_add</span>
+<span>Sauvegarder dans bibliothèque</span>
+</button>
+</div>
+<button class="px-4 py-1.5 rounded-lg bg-secondary-container hover:bg-secondary-fixed text-on-secondary-container font-headline-md text-body-sm font-semibold flex items-center gap-2 transition-all shadow-[0_0_16px_rgba(0,238,252,0.3)] active:scale-95">
+<span class="material-symbols-outlined text-[17px]" data-icon="account_tree">account_tree</span>
+<span>Envoyer vers ComfyUI (KSampler)</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- ================= INLINE SCRIPT FOR MICRO-INTERACTIONS ================= -->
+<script>
+    // Lightweight interactivity for notification/copy state feedback
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        if (this.innerText.includes('Copier')) {
+          const originalText = this.innerHTML;
+          this.innerHTML = '<span class="material-symbols-outlined text-[15px]" data-icon="check">check</span><span>Copié !</span>';
+          setTimeout(() => {
+            this.innerHTML = originalText;
+          }, 1800);
+        }
+      });
+    });
+  </script>
+</body></html>
