@@ -1,76 +1,138 @@
-# Flux Studio
+# Flux Studio v2
 
-Studio local (Windows) pour **créer des femmes en IA** : base de prompts Civitai réels
-(femmes uniquement, NSFW jusqu'au niveau **X**, **XXX exclu**) + gestionnaire **ComfyUI**
-synchronisé avec `F:\f\ComfyUI`.
+Studio local (Windows) pour gérer une base de prompts Civitai (femmes IA, NSFW jusqu'à X) et piloter ComfyUI (RTX 3060 12 Go) avec un éditeur nodal, des workflows one-click et une palette LoRA instantanée.
 
-Interface : **SPA vanilla** (aucun framework), thème **« Dark Studio Pro »** généré avec
-**Stitch**. Serveur unique en Python (bibliothèque standard).
+- **Frontend** : SPA vanilla JS (pas de framework), design dark studio pro (tokens Stitch).
+- **Backend** : Python `ThreadingHTTPServer` (port 8080) + bridge ComfyUI (port 8188).
+- **Vision** : Gemini API (`gemini-3.1-flash-lite`).
+- **LoRA** : 475 indexés, recherche < 1 ms, Ctrl+K.
 
----
+## Prérequis
 
-## Démarrage
+- Windows 10/11
+- Python 3.11+
+- ComfyUI installé dans `F:\f\ComfyUI` (ou ajuster `COMFYUI_ROOT` dans `app/server.py`)
+- NVIDIA GPU (12 Go VRAM recommandé ; 8 Go minimum pour SDXL)
+- (optionnel) ComfyUI-Manager pour le custom node de cache
+
+## Installation
 
 ```powershell
+git clone https://github.com/youneselfakir0/flux-studio.git
+cd flux-studio
+
+# Dépendances Python (backend)
+pip install -r requirements.txt  # si présent, sinon : aucune dépendance externe requise
+
+# Lancer ComfyUI (terminal 1)
+cd F:\f\ComfyUI
+.venv\Scripts\python.exe main.py --listen 127.0.0.1 --port 8188 --enable-cors-header
+
+# Lancer Flux Studio (terminal 2)
 cd C:\Users\administrator\flux-studio
 python app\server.py
-# -> http://localhost:8080
 ```
 
-## Fonctionnalités
+Ouvrir http://localhost:8080.
 
-| Vue | Contenu |
-|---|---|
-| **Prompts** | grille de prompts Civitai · filtres base model / type / tag · `♀ Femmes seulement` · niveau NSFW max · copie du prompt ou du prompt complet · détail (prompt + négatif + paramètres + ressources) · enregistrement du workflow dans ComfyUI |
-| **ComfyUI** | scan des modèles installés (rapide), recherche Civitai, téléchargement vers le bon dossier `models/…`, file de téléchargements avec progression, liste des workflows |
-| **Image → Prompt** | dépôt d'image → métadonnées lues (PNG/EXIF) + description Ollama si un modèle vision est disponible |
-| **Profil** | GPU + VRAM, volumes, répartition des LoRA par base, préférences |
+## Variables d'environnement
 
-**NSFW** : collecte jusqu'à **X**, jamais XXX (`browsingLevel & 16` rejeté). Badges colorés
-(None/Soft/Mature/X). **Safe mode** : les vignettes NSFW sont floutées jusqu'au survol.
+Copier `.env.example` en `.env` et renseigner :
 
-## Structure
+```
+GEMINI_API_KEY=...        # Google AI Studio
+CIVITAI_TOKEN=...         # Civitai API token
+GEMINI_MODEL=gemini-3.1-flash-lite
+```
+
+Sous Windows PowerShell, avant de lancer :
+
+```powershell
+$env:GEMINI_API_KEY = "..."
+$env:CIVITAI_TOKEN = "..."
+```
+
+Sans ces variables, la description d'image et le scraping Civitai sont désactivés, le reste fonctionne.
+
+## Custom node (cache d'encodeur)
+
+Pour activer le cache de conditioning (gain ~30s sur FLUX.2 Klein / SDXL répétés) :
+
+1. Copier le dossier `custom_nodes/flux_studio_cache/` (fourni dans le repo sous `comfyui_custom_nodes/flux_studio_cache/` si présent, sinon recréer depuis `docs/`) dans `F:\f\ComfyUI\custom_nodes\`.
+2. Redémarrer ComfyUI.
+3. Vérifier dans les logs : `FluxStudioCachedConditioning` apparaît dans `/object_info`.
+
+Le frontend détecte automatiquement le nœud au boot et bascule les workflows dessus.
+
+## Utilisation
+
+### Mode Workflow (nodal)
+- Onglet **Workflow** : éditeur nodal type InvokeAI.
+- **Ctrl+K** : palette LoRA (recherche instantanée, filtre par base active).
+- **Ctrl+Z / Ctrl+Y** : undo/redo.
+- **Ctrl+Enter** : exécuter le graphe.
+- Bouton **✓ Valider** : valide sans polluer la file ComfyUI.
+- Bouton **🔥 Pré-charge** : charge le modèle en VRAM en arrière-plan.
+- Bouton **🧹 Libérer** : décharge les modèles (VRAM).
+
+### Mode App (simple)
+- Onglet **App** : pas de nœuds. Choix modèle, prompt, taille, steps, CFG, seed, LoRA. Bouton Générer.
+- **Depuis une image** : drop d'image anywhere → vision sheet (description Gemini + envoi au workflow).
+
+### Galerie
+- Prompts Civitai réels, filtres base/NSFW/genre.
+- Queue de génération avec exécution réelle ComfyUI + polling.
+
+### Modèles
+- Scanner local (`↻ Rescan`) des modèles installés dans ComfyUI.
+- Recherche Civitai + téléchargement one-click vers le bon dossier.
+
+## Pipelines validés
+
+- **FLUX.2 Klein** (4 steps distillé) : `CLIPLoader(qwen_3_4b, type=flux2)` + `Flux2Scheduler` + `CFGGuider` + `SamplerCustomAdvanced`
+- **FLUX.1 Dev** (24 steps)
+- **SDXL** (24 steps), SD 1.5, LTX Video, Z-Image, Qwen
+
+## Points techniques importants
+
+- **VRAM 12 Go** : le frontend auto-libère la VRAM si insuffisante avant un run, et détecte la VRAM faible au démarrage.
+- **Séparateurs Windows** : le serveur lit les combos depuis `/object_info` (jamais depuis le disque), pour éviter les erreurs `Value not in list`.
+- **Empty string widgets** envoyés à ComfyUI (inputs requis).
+- **`/api/comfyui/queue`** en lecture seule (interrompait le job en cours).
+- **PowerShell** : pas de `jq`, pas de heredocs. `Set-Content -Encoding UTF8` corrompt l'UTF-8 → utiliser Python ou l'outil `edit`.
+
+## Structure du repo
 
 ```
 flux-studio/
-  app/
-    server.py            # serveur HTTP unique (port 8080)
-    static/              # index.html · app.css · app.js
-  data/flux_studio.db    # base SQLite
-  scraper/scrape_civitai.py
-  design/
-    DESIGN.md            # tokens de design (Stitch)
-    screens/             # exports Stitch (PNG + HTML)
-  docs/                  # captures
-  skill/SKILL.md         # skill agent
+├── app/
+│   ├── server.py              # API + bridge ComfyUI
+│   └── static/
+│       ├── v2/                # SPA v2 (main.js, editor.css, vision.css)
+│       ├── editor/            # graphe nodal
+│       ├── nodes/             # registre + catalogue
+│       ├── workflows/         # builder + catalog + quickstart
+│       ├── loras/             # palette + UI
+│       ├── gallery/           # galerie Civitai
+│       ├── models/            # browser
+│       └── core/              # api, state, storage, events
+├── data/
+│   ├── lora_index.json        # 475 LoRA
+│   └── klein_workflow.json    # payload validé
+├── docs/
+│   ├── REPORT.md
+│   ├── TODO.md
+│   └── PLAN_CORRECTION.md
+├── scraper/                   # scripts de scraping/indexation
+├── design/                    # maquettes Stitch
+├── .env.example
+└── .gitignore
 ```
 
-## API
+## Licence
 
-Voir `../.agents/skills/flux-studio/SKILL.md` (§3) ou le tableau complet dans le README de
-la skill. En bref : `/api/images`, `/api/image`, `/api/stats`, `/api/categories`,
-`/api/proxy`, `/api/comfyui/{local,profile,search,downloads,download,describe,ollama,save_workflow}`.
+Projet personnel — usage local.
 
-## Scraper
+---
 
-```powershell
-python scraper\scrape_civitai.py
-```
-
-Relançable sans doublon. Voir la skill pour les pièges de l'API Civitai
-(`withMeta=true`, `model-versions/<id>`, `nextCursor`, noms de bases réels).
-
-## Design
-
-Le design system vient du projet Stitch **Flux Studio**
-(`projects/2383638101138649318`, design system `Dark Studio Pro`).
-Les tokens sont centralisés dans `:root` au début de `app/static/app.css`.
-
-| Token | Valeur |
-|---|---|
-| Fond | `#0c0e11` |
-| Surface / Surface-2 | `#111317` / `#1e2023` |
-| Primaire | `#cabeff` / `#947dff` / `#603ce2` |
-| Accent | `#00eefc` |
-| Polices | Space Grotesk · Inter · JetBrains Mono |
-| NSFW | none `#10b981` · soft `#f59e0b` · mature `#f97316` · x `#ef4444` |
+*Généré le 17/10/2026.*
