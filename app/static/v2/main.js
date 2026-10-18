@@ -877,8 +877,9 @@ window.addEventListener('keydown', (e) => {
 });
 
 /* ===================== VRAM Indicator ===================== */
+let _vramLoaded = false;
 async function updateVram() {
-  if (document.hidden) return;
+  if (document.hidden && _vramLoaded) return;
   const el = $("#vramIndicator");
   if (!el) return;
   try {
@@ -890,6 +891,7 @@ async function updateVram() {
       el.classList.remove("warn", "crit");
       if (used / total > 0.92) el.classList.add("crit");
       else if (used / total > 0.83) el.classList.add("warn");
+      _vramLoaded = true;
     }
   } catch (e) {}
 }
