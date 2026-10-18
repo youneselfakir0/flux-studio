@@ -651,3 +651,5 @@ body.safe .gallery-item.nsfw .gallery-thumb:hover img { filter: none; }
 .empty { text-align: center; color: var(--faint); padding: 40px 20px; font-size: 13px; }
 .loading { text-align: center; color: var(--muted); padding: 30px; }
 .error { color: var(--nsfw-x); text-align: center; padding: 20px; }
+/* Advanced mode toggle active state */
+#advancedModeToggle.on { background: var(--primary-soft); border-color: var(--primary-line); color: #fff; }

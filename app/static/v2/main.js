@@ -122,6 +122,16 @@ function go(view) {
   const el = $("#view-" + view);
   if (el) el.classList.add("active");
 
+  // Sync "Mode avance" toggle with workflow view
+  const advBtn = $("#advancedModeToggle");
+  if (advBtn) {
+    const isAdv = view === "workflow";
+    advBtn.classList.toggle("on", isAdv);
+    advBtn.textContent = isAdv ? "Mode avance ON" : "Mode avance";
+  }
+  const tb = $("#wfToolbar");
+  if (tb) tb.style.display = (view === "workflow") ? "" : "none";
+
   if (view === "gallery" && !gallery) gallery = createGallery($("#galleryRoot"));
   if (view === "models" && !modelBrowser) modelBrowser = createModelBrowser($("#modelsRoot"));
   if (view === "canvas2d" && !canvas2d) canvas2d = createCanvas2D($("#canvas2dRoot"));
@@ -909,7 +919,7 @@ async function boot() {
   // par polling HTTP, qui fonctionne. Réactiver ici si le WS est autorisé :
   // (try { const ws = new ComfyWS(); ws.connect(); } catch {})
 
-  go('workflow');
+  go('app');
   updateWfStats();
 
   console.log('[Flux Studio v2] Booted ✓');
