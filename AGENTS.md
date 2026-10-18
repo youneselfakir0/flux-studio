@@ -52,11 +52,17 @@ flux-studio/
 - Pas de `jq`, pas de heredocs sous PowerShell. Utiliser Python ou l'outil `edit` pour modifier des fichiers.
 - `Set-Content -Encoding UTF8` corrompt l'UTF-8 : utiliser Python ou l'outil `edit`.
 
+- **Pas de système de profil/compte.** App mono-utilisateur locale.
+- **Préférences dans `localStorage` (client) ou `data/preferences.json` (serveur).**
+- **Topbar = Logo, TabGroup, ToggleAdvanced, VramIndicator, IconFolder, IconLogs, IconSettings.**
+- **Ne jamais ajouter de login, avatar, ou écran "compte".**
+
 ## Fichiers critiques à ne pas casser
 
 - `app/server.py` — API + bridge ComfyUI
 - `data/klein_workflow.json` — payload ComfyUI valide (ne pas modifier sans validation explicite)
 - `data/lora_index.json` — 475 LoRA (ne pas réécrire sans raison)
+- `data/preferences.json` — préférences utilisateur (optionnel, sinon localStorage)
 
 ## ComfyUI
 
