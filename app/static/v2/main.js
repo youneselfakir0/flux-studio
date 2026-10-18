@@ -139,6 +139,14 @@ function go(view) {
   if (view === "app") populateAppLoras();
 }
 $$(".topnav-tab").forEach(t => t.onclick = () => go(t.dataset.view));
+// Toggle "Mode avance" -> bascule App / Workflow nodal
+const _advBtn = $("#advancedModeToggle");
+if (_advBtn) {
+  _advBtn.addEventListener("click", () => {
+    const isWf = $("#view-workflow")?.classList.contains("active");
+    go(isWf ? "app" : "workflow");
+  });
+}
 
 // ===================== SAFE MODE / NSFW =====================
 function applySafe() { document.body.classList.toggle("safe", state.safe !== false); }
