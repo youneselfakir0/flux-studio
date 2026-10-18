@@ -300,8 +300,63 @@ _downloads = {}
 
 
 def init_db():
+    """Cree TOUTES les tables utilisees par les endpoints (fresh clone OK)."""
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS models (
+            id INTEGER PRIMARY KEY,
+            civitai_model_id INTEGER,
+            name TEXT,
+            type TEXT,
+            base_model TEXT,
+            nsfw_level INTEGER,
+            creator TEXT,
+            tags TEXT,
+            download_count INTEGER,
+            description TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS model_versions (
+            id INTEGER PRIMARY KEY,
+            model_id INTEGER,
+            civitai_version_id INTEGER,
+            name TEXT,
+            base_model TEXT,
+            published_at TEXT,
+            nsfw_level INTEGER,
+            files TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY,
+            model_version_id INTEGER,
+            civitai_image_id INTEGER,
+            url TEXT,
+            width INTEGER,
+            height INTEGER,
+            nsfw_level INTEGER,
+            nsfw BOOLEAN,
+            created_at TEXT,
+            username TEXT,
+            meta TEXT,
+            positive_prompt TEXT,
+            negative_prompt TEXT,
+            seed TEXT,
+            steps INTEGER,
+            sampler TEXT,
+            cfg_scale REAL,
+            scheduler TEXT,
+            aspect_ratio TEXT,
+            resources TEXT,
+            workflow TEXT,
+            male INTEGER,
+            female INTEGER
+        )
+    """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS comfyui_downloads (
             id TEXT PRIMARY KEY,
@@ -1771,7 +1826,12 @@ class QuietServer(ThreadingHTTPServer):
 if __name__ == "__main__":
     os.makedirs(STATIC_DIR, exist_ok=True)
     init_db()
-    print(f"Flux Studio  ->  http://localhost:{PORT}")
+    host = "127.0.0.1"
+    if "--host" in sys.argv:
+        idx = sys.argv.index("--host")
+        if idx + 1 < len(sys.argv):
+            host = sys.argv[idx + 1]
+    print(f"Flux Studio  ->  http://{host}:{PORT}")
     print(f"DB: {DB_PATH}")
     print(f"ComfyUI: {MODELS_DIR}")
-    QuietServer(("", PORT), Handler).serve_forever()
+    QuietServer((host, PORT), Handler).serve_forever()

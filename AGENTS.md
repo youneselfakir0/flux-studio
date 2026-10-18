@@ -30,19 +30,23 @@ flux-studio/
 └── .gitignore
 ```
 
-## Commandes
+## Lancement
 
-- Lancer ComfyUI (terminal 1) :
-  ```powershell
-  cd F:\f\ComfyUI
-  .venv\Scripts\python.exe main.py --listen 127.0.0.1 --port 8188 --enable-cors-header
+- ComfyUI (terminal 1) :
   ```
-- Lancer Flux Studio (terminal 2) :
-  ```powershell
-  cd C:\Users\administrator\flux-studio
-  python app\server.py
+  cd <chemin-ComfyUI>
+  .venv\Scripts\python.exe main.py --listen 127.0.0.1 --port 8188 --enable-cors-header http://127.0.0.1:8080
+  ```
+- Flux Studio (terminal 2, depuis la racine du repo) :
+  ```
+  python app/server.py
   ```
 - Ouvrir : http://localhost:8080
+- Le serveur bind sur 127.0.0.1 par défaut (jamais 0.0.0.0 sans flag --host explicite).
+- ComfyUI : CORS restreint à http://127.0.0.1:8080, jamais `*`.
+
+## Commandes
+
 - Vérifier ComfyUI : `curl http://127.0.0.1:8188/object_info`
 
 ## Conventions
@@ -72,13 +76,19 @@ flux-studio/
 
 ## Windows
 
-- Chemins avec `/` dans le code envoyé au serveur, jamais `\`.
+- Chemins de fichiers locaux : `/` dans le code envoyé au serveur.
+- Valeurs de combo (modèles, VAEs, LoRAs) : envoyées TELLES QUELLES depuis /object_info, jamais transformées (sinon `Value not in list`).
+- Fallback disque de comfy_models_list : documenté, limité aux extensions valides (.safetensors, .ckpt), ne jamais exposer un fichier absent de /object_info si une option existe.
 - Les combos de modèles sont lus depuis `/object_info` (jamais depuis le disque) pour éviter les erreurs `Value not in list`.
 
 ## Critères "Done"
 
+- Done (fixture) : `klein_workflow.json` exécuté tel quel via `/prompt` → image OK.
+- Done (App) : prompt saisi dans l'UI + Générer → job visible dans `/queue` → image dans la galerie.
+- Les deux sont des checks séparés.
+- `init_db()` crée TOUTES les tables utilisées par les endpoints (pas seulement comfyui_downloads).
+- Fresh clone : `rm data/flux_studio.db && python app/server.py` boote sans 500 sur /api/stats.
 - Le mode App charge sans erreur console.
-- Un prompt génère via `klein_workflow.json`.
 - Ctrl+K reste instantané sur 475 LoRAs.
 - Aucune régression sur le mode Workflow nodal.
 
