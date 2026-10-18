@@ -1232,6 +1232,45 @@ def comfy_history(prompt_id):
     return {"status": "pending", "images": imgs}
 
 
+def comfy_vram():
+    """VRAM utilisee/totale via ComfyUI /system_stats, repli nvidia-smi."""
+    total = None
+    free = None
+    try:
+        st = _comfy_get("/system_stats", timeout=5)
+        dev = (st.get("devices") or [{}])[0]
+        total = dev.get("vram_total")
+        free = dev.get("vram_free")
+    except Exception:
+        pass
+    if total is None or free is None:
+        try:
+            import subprocess
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+                timeout=5, stderr=subprocess.DEVNULL).decode("utf-8", "replace").strip().splitlines()
+            if out:
+                used_s, total_s = out[0].split(",")
+                used_mb = float(used_s.strip())
+                total_mb = float(total_s.strip())
+                total = int(total_mb * 1024 * 1024)
+                free = int((total_mb - used_mb) * 1024 * 1024)
+        except Exception:
+            pass
+    if total is None:
+        return {"ok": False, "error": "VRAM indisponible"}
+    used = total - (free or 0)
+    return {
+        "ok": True,
+        "vram_total": total,
+        "vram_free": free or 0,
+        "vram_used": used,
+        "vram_total_gb": round(total / (1024 ** 3), 2),
+        "vram_used_gb": round(used / (1024 ** 3), 2),
+        "vram_free_gb": round((free or 0) / (1024 ** 3), 2),
+    }
+
+
 def comfy_queue():
     """Lecture seule de la file d'attente ComfyUI.
 
@@ -1594,6 +1633,8 @@ class Handler(SimpleHTTPRequestHandler):
                     query.get("type", ["output"])[0])
             if path == "/api/comfyui/history":
                 return self.send_json(comfy_history(query.get("id", [""])[0]))
+            if path == "/api/comfyui/vram":
+                return self.send_json(comfy_vram())
             if path == "/api/comfyui/queue":
                 return self.send_json(comfy_queue())
             if path == "/api/comfyui/scan-files":

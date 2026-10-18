@@ -876,6 +876,77 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+/* ===================== VRAM Indicator ===================== */
+async function updateVram() {
+  const el = $("#vramIndicator");
+  if (!el) return;
+  try {
+    const r = await fetch("/api/comfyui/vram").then(x => x.json());
+    if (r.ok) {
+      const used = r.vram_used_gb;
+      const total = r.vram_total_gb;
+      el.textContent = `⚡ ${used.toFixed(1)}/${total.toFixed(1)} Go`;
+      el.classList.remove("warn", "crit");
+      if (used / total > 0.92) el.classList.add("crit");
+      else if (used / total > 0.83) el.classList.add("warn");
+    }
+  } catch (e) {}
+}
+setInterval(updateVram, 2000);
+setTimeout(updateVram, 500);
+
+/* ===================== Preferences Modal ===================== */
+const PREFS_KEY = "flux_prefs";
+function loadPrefs() {
+  let p = {};
+  try { p = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); } catch {}
+  return p;
+}
+function savePrefs(p) {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {}
+}
+function applyPrefsToUI(p) {
+  const ckpt = $("#prefCkpt"); if (ckpt && p.ckpt) ckpt.value = p.ckpt;
+  const steps = $("#prefSteps"); if (steps && p.steps) steps.value = p.steps;
+  const cfg = $("#prefCfg"); if (cfg && p.cfg) cfg.value = p.cfg;
+  $("#prefRatio")?.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.ratio === (p.ratio || "1:1")));
+  $("#prefNsfw")?.querySelectorAll("button").forEach(b => b.classList.toggle("on", +b.dataset.nsfw === (p.nsfw || 4)));
+  $("#prefTheme")?.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.theme === (p.theme || "dark")));
+}
+function openPrefs() {
+  const m = $("#prefsModal"); if (!m) return;
+  m.style.display = "flex";
+  applyPrefsToUI(loadPrefs());
+}
+function closePrefs() {
+  const m = $("#prefsModal"); if (m) m.style.display = "none";
+}
+$("#settingsBtn")?.addEventListener("click", openPrefs);
+$("#prefsCancel")?.addEventListener("click", closePrefs);
+$("#prefsModal")?.addEventListener("click", (e) => { if (e.target.id === "prefsModal") closePrefs(); });
+$("#prefsSave")?.addEventListener("click", () => {
+  const p = loadPrefs();
+  p.ckpt = $("#prefCkpt")?.value || p.ckpt;
+  p.steps = +($("#prefSteps")?.value || 24);
+  p.cfg = +($("#prefCfg")?.value || 7);
+  const r = $("#prefRatio")?.querySelector("button.on"); if (r) p.ratio = r.dataset.ratio;
+  const n = $("#prefNsfw")?.querySelector("button.on"); if (n) p.nsfw = +n.dataset.nsfw;
+  const t = $("#prefTheme")?.querySelector("button.on"); if (t) p.theme = t.dataset.theme;
+  savePrefs(p);
+  closePrefs();
+  toast("Préférences enregistrées");
+});
+// ratio/nsfw/theme toggle buttons
+["prefRatio","prefNsfw","prefTheme"].forEach(id => {
+  const box = $("#" + id); if (!box) return;
+  box.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    box.querySelectorAll("button").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+  }));
+});
+// init prefs on load
+setTimeout(() => applyPrefsToUI(loadPrefs()), 300);
+
 // ===================== BOOT =====================
 async function boot() {
   let saved = null;
