@@ -301,35 +301,44 @@ _dl_lock = threading.Lock()
 _downloads = {}
 
 
-_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_ALLOWED_TABLES = {"models", "model_versions", "images", "comfyui_downloads"}
 _ALLOWED_DECLS = {
     "INTEGER", "TEXT", "REAL", "BOOLEAN", "INTEGER DEFAULT 0", "REAL DEFAULT 0",
 }
 
+# Mapping statique table -> requete PRAGMA (evite toute interpolation dans execute)
+_PRAGMA_SQL = {
+    "models": 'PRAGMA table_info("models")',
+    "model_versions": 'PRAGMA table_info("model_versions")',
+    "images": 'PRAGMA table_info("images")',
+    "comfyui_downloads": 'PRAGMA table_info("comfyui_downloads")',
+}
 
-def _safe_ident(name):
-    if not isinstance(name, str) or not _IDENT_RE.match(name):
-        raise ValueError(f"identifiant SQL invalide: {name!r}")
-    return '"' + name.replace('"', '""') + '"'
+# Mapping statique (table, column) -> requete ALTER (evite toute interpolation)
+_ALTER_SQL = {
+    ("images", "male"): 'ALTER TABLE "images" ADD COLUMN "male" INTEGER',
+    ("images", "female"): 'ALTER TABLE "images" ADD COLUMN "female" INTEGER',
+    ("models", "civitai_model_id"): 'ALTER TABLE "models" ADD COLUMN "civitai_model_id" INTEGER',
+    ("model_versions", "civitai_version_id"): 'ALTER TABLE "model_versions" ADD COLUMN "civitai_version_id" INTEGER',
+    ("images", "civitai_image_id"): 'ALTER TABLE "images" ADD COLUMN "civitai_image_id" INTEGER',
+}
 
 
 def _add_column_if_missing(conn, table, column, decl):
     """Migration idempotente : ajoute une colonne si elle n'existe pas.
 
-    Les identifiants sont valides (whitelist + regex) avant interpolation,
-    car SQLite ne supporte pas les parametres prepares pour le DDL.
+    Utilise uniquement des requetes SQL statiques (pas d'interpolation) pour
+    satisfaire les regles de securite sur les requetes preparees.
     """
-    if table not in _ALLOWED_TABLES:
-        raise ValueError(f"table non autorisee: {table!r}")
     if decl not in _ALLOWED_DECLS:
-        raise ValueError(f"declaration non autorisee: {decl!r}")
-    t = _safe_ident(table)
-    c = _safe_ident(column)
-    cols = {r[1] for r in conn.execute(f"PRAGMA table_info({t})").fetchall()}
+        raise ValueError("declaration non autorisee: %r" % decl)
+    pragma_sql = _PRAGMA_SQL.get(table)
+    alter_sql = _ALTER_SQL.get((table, column))
+    if pragma_sql is None or alter_sql is None:
+        raise ValueError("table/colonne non autorisee: %s/%s" % (table, column))
+    cols = {r[1] for r in conn.execute(pragma_sql).fetchall()}
     if column not in cols:
         try:
-            conn.execute(f"ALTER TABLE {t} ADD COLUMN {c} {decl}")
+            conn.execute(alter_sql)
         except sqlite3.OperationalError:
             pass
 
