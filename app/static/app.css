@@ -413,8 +413,8 @@ input[type="range"]::-webkit-slider-runnable-track {
 .gen-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 /* VramIndicator states */
-#vramIndicator.warn { color: #f59e0b; }
-#vramIndicator.crit { color: #ef4444; }
+#vramIndicator.warn { color: var(--nsfw-soft); }
+#vramIndicator.crit { color: var(--nsfw-x); }
 
 /* Preferences modal */
 #prefsModal { align-items: center; justify-content: center; z-index: 10001; }

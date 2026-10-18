@@ -878,6 +878,7 @@ window.addEventListener('keydown', (e) => {
 
 /* ===================== VRAM Indicator ===================== */
 async function updateVram() {
+  if (document.hidden) return;
   const el = $("#vramIndicator");
   if (!el) return;
   try {
@@ -894,9 +895,10 @@ async function updateVram() {
 }
 setInterval(updateVram, 2000);
 setTimeout(updateVram, 500);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) updateVram(); });
 
 /* ===================== Preferences Modal ===================== */
-const PREFS_KEY = "flux_prefs";
+const PREFS_KEY = "flux-studio:prefs";
 function loadPrefs() {
   let p = {};
   try { p = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); } catch {}
