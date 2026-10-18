@@ -24,6 +24,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "data", "flux_studio.db")
 THUMB_CACHE_DIR = os.path.join(BASE_DIR, "data", "thumb_cache")
 PORT = 8080
+ALLOWED_HOSTS = {"127.0.0.1", "localhost", "127.0.0.1:8080", "localhost:8080"}
+ALLOWED_ORIGINS = {"http://127.0.0.1:8080", "http://localhost:8080"}
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
@@ -299,12 +301,35 @@ _dl_lock = threading.Lock()
 _downloads = {}
 
 
+_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_ALLOWED_TABLES = {"models", "model_versions", "images", "comfyui_downloads"}
+_ALLOWED_DECLS = {
+    "INTEGER", "TEXT", "REAL", "BOOLEAN", "INTEGER DEFAULT 0", "REAL DEFAULT 0",
+}
+
+
+def _safe_ident(name):
+    if not isinstance(name, str) or not _IDENT_RE.match(name):
+        raise ValueError(f"identifiant SQL invalide: {name!r}")
+    return '"' + name.replace('"', '""') + '"'
+
+
 def _add_column_if_missing(conn, table, column, decl):
-    """Migration idempotente : ajoute une colonne si elle n'existe pas."""
-    cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    """Migration idempotente : ajoute une colonne si elle n'existe pas.
+
+    Les identifiants sont valides (whitelist + regex) avant interpolation,
+    car SQLite ne supporte pas les parametres prepares pour le DDL.
+    """
+    if table not in _ALLOWED_TABLES:
+        raise ValueError(f"table non autorisee: {table!r}")
+    if decl not in _ALLOWED_DECLS:
+        raise ValueError(f"declaration non autorisee: {decl!r}")
+    t = _safe_ident(table)
+    c = _safe_ident(column)
+    cols = {r[1] for r in conn.execute(f"PRAGMA table_info({t})").fetchall()}
     if column not in cols:
         try:
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+            conn.execute(f"ALTER TABLE {t} ADD COLUMN {c} {decl}")
         except sqlite3.OperationalError:
             pass
 
@@ -1502,9 +1527,33 @@ class Handler(SimpleHTTPRequestHandler):
         except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
             pass  # client parti (navigation, onglet ferme) : rien a signaler
 
+    def _host_allowed(self):
+        host = (self.headers.get("Host") or "").strip().lower()
+        if not host:
+            return False
+        if host not in ALLOWED_HOSTS:
+            # accepter aussi host:port construit a partir du host lie
+            if host.split(":")[0] not in ("127.0.0.1", "localhost"):
+                return False
+        return True
+
+    def _origin_allowed(self):
+        origin = (self.headers.get("Origin") or "").strip()
+        if not origin:
+            return True  # requetes same-origin / non-navigateur
+        return origin in ALLOWED_ORIGINS
+
+    def _reject_if_bad_host(self):
+        if not self._host_allowed():
+            self.send_json({"error": "host non autorise"}, 403)
+            return True
+        return False
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path, query = parsed.path, parse_qs(parsed.query)
+        if self._reject_if_bad_host():
+            return
         try:
             if path == "/api/models":        return self.send_json(get_models())
             if path == "/api/images":        return self.send_json(get_images(query))
@@ -1677,6 +1726,11 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        if self._reject_if_bad_host():
+            return
+        if not self._origin_allowed():
+            self.send_json({"error": "origin non autorise"}, 403)
+            return
         try:
             if path == "/api/comfyui/interrupt":
                 return self.send_json(comfy_interrupt())
@@ -1880,6 +1934,10 @@ if __name__ == "__main__":
         idx = sys.argv.index("--host")
         if idx + 1 < len(sys.argv):
             host = sys.argv[idx + 1]
+    ALLOWED_HOSTS.update({host, f"{host}:{PORT}", "127.0.0.1", "localhost",
+                          f"127.0.0.1:{PORT}", f"localhost:{PORT}"})
+    ALLOWED_ORIGINS.update({f"http://{host}:{PORT}", "http://127.0.0.1:8080",
+                            "http://localhost:8080"})
     print(f"Flux Studio  ->  http://{host}:{PORT}")
     print(f"DB: {DB_PATH}")
     print(f"ComfyUI: {MODELS_DIR}")
