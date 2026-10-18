@@ -24,6 +24,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "data", "flux_studio.db")
 THUMB_CACHE_DIR = os.path.join(BASE_DIR, "data", "thumb_cache")
 PORT = 8080
+ALLOWED_HOSTS = {"127.0.0.1", "localhost", "127.0.0.1:8080", "localhost:8080"}
+ALLOWED_ORIGINS = {"http://127.0.0.1:8080", "http://localhost:8080"}
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
@@ -299,9 +301,111 @@ _dl_lock = threading.Lock()
 _downloads = {}
 
 
+_ALLOWED_DECLS = {
+    "INTEGER", "TEXT", "REAL", "BOOLEAN", "INTEGER DEFAULT 0", "REAL DEFAULT 0",
+}
+
+# Mapping statique table -> requete PRAGMA (evite toute interpolation dans execute)
+_PRAGMA_SQL = {
+    "models": 'PRAGMA table_info("models")',
+    "model_versions": 'PRAGMA table_info("model_versions")',
+    "images": 'PRAGMA table_info("images")',
+    "comfyui_downloads": 'PRAGMA table_info("comfyui_downloads")',
+}
+
+# Mapping statique (table, column) -> requete ALTER (evite toute interpolation)
+_ALTER_SQL = {
+    ("images", "male"): 'ALTER TABLE "images" ADD COLUMN "male" INTEGER',
+    ("images", "female"): 'ALTER TABLE "images" ADD COLUMN "female" INTEGER',
+    ("models", "civitai_model_id"): 'ALTER TABLE "models" ADD COLUMN "civitai_model_id" INTEGER',
+    ("model_versions", "civitai_version_id"): 'ALTER TABLE "model_versions" ADD COLUMN "civitai_version_id" INTEGER',
+    ("images", "civitai_image_id"): 'ALTER TABLE "images" ADD COLUMN "civitai_image_id" INTEGER',
+}
+
+
+def _add_column_if_missing(conn, table, column, decl):
+    """Migration idempotente : ajoute une colonne si elle n'existe pas.
+
+    Utilise uniquement des requetes SQL statiques (pas d'interpolation) pour
+    satisfaire les regles de securite sur les requetes preparees.
+    """
+    if decl not in _ALLOWED_DECLS:
+        raise ValueError("declaration non autorisee: %r" % decl)
+    pragma_sql = _PRAGMA_SQL.get(table)
+    alter_sql = _ALTER_SQL.get((table, column))
+    if pragma_sql is None or alter_sql is None:
+        raise ValueError("table/colonne non autorisee: %s/%s" % (table, column))
+    cols = {r[1] for r in conn.execute(pragma_sql).fetchall()}
+    if column not in cols:
+        try:
+            conn.execute(alter_sql)
+        except sqlite3.OperationalError:
+            pass
+
+
 def init_db():
+    """Cree TOUTES les tables utilisees par les endpoints (fresh clone OK).
+
+    - Contraintes UNIQUE sur les IDs Civitai (evite les doublons).
+    - Migration idempotente pour les bases existantes (colonnes manquantes).
+    - Indexes pour les jointures/tris de get_images().
+    """
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS models (
+            id INTEGER PRIMARY KEY,
+            civitai_model_id INTEGER UNIQUE,
+            name TEXT,
+            type TEXT,
+            base_model TEXT,
+            nsfw_level INTEGER,
+            creator TEXT,
+            tags TEXT,
+            download_count INTEGER,
+            description TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS model_versions (
+            id INTEGER PRIMARY KEY,
+            model_id INTEGER,
+            civitai_version_id INTEGER UNIQUE,
+            name TEXT,
+            base_model TEXT,
+            published_at TEXT,
+            nsfw_level INTEGER,
+            files TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY,
+            model_version_id INTEGER,
+            civitai_image_id INTEGER UNIQUE,
+            url TEXT,
+            width INTEGER,
+            height INTEGER,
+            nsfw_level INTEGER,
+            nsfw BOOLEAN,
+            created_at TEXT,
+            username TEXT,
+            meta TEXT,
+            positive_prompt TEXT,
+            negative_prompt TEXT,
+            seed TEXT,
+            steps INTEGER,
+            sampler TEXT,
+            cfg_scale REAL,
+            scheduler TEXT,
+            aspect_ratio TEXT,
+            resources TEXT,
+            workflow TEXT,
+            male INTEGER,
+            female INTEGER
+        )
+    """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS comfyui_downloads (
             id TEXT PRIMARY KEY,
@@ -311,8 +415,42 @@ def init_db():
             error TEXT, started_at REAL, completed_at REAL
         )
     """)
+
+    # Migration idempotente pour bases existantes (colonnes manquantes)
+    for col, decl in (("male", "INTEGER"), ("female", "INTEGER")):
+        _add_column_if_missing(conn, "images", col, decl)
+    for col, decl in (("civitai_model_id", "INTEGER"),):
+        _add_column_if_missing(conn, "models", col, decl)
+    for col, decl in (("civitai_version_id", "INTEGER"),):
+        _add_column_if_missing(conn, "model_versions", col, decl)
+    for col, decl in (("civitai_image_id", "INTEGER"),):
+        _add_column_if_missing(conn, "images", col, decl)
+
+    # Indexes pour les jointures/tris de get_images() et les contraintes uniques
+    index_sql = [
+        "CREATE INDEX IF NOT EXISTS idx_images_model_version ON images(model_version_id)",
+        "CREATE INDEX IF NOT EXISTS idx_images_civitai ON images(civitai_image_id)",
+        "CREATE INDEX IF NOT EXISTS idx_mv_model ON model_versions(model_id)",
+        "CREATE INDEX IF NOT EXISTS idx_models_civitai ON models(civitai_model_id)",
+        "CREATE INDEX IF NOT EXISTS idx_mv_civitai ON model_versions(civitai_version_id)",
+    ]
+    # Contraintes uniques (best-effort sur bases existantes)
+    unique_sql = [
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_models_civitai ON models(civitai_model_id)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_mv_civitai ON model_versions(civitai_version_id)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_images_civitai ON images(civitai_image_id)",
+    ]
+    for sql in index_sql + unique_sql:
+        try:
+            conn.execute(sql)
+        except sqlite3.OperationalError:
+            # doublons existants : on ignore pour ne pas casser le boot
+            pass
+
     conn.commit()
     conn.close()
+
+
 
 
 def _progress(did, **kw):
@@ -1398,9 +1536,33 @@ class Handler(SimpleHTTPRequestHandler):
         except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
             pass  # client parti (navigation, onglet ferme) : rien a signaler
 
+    def _host_allowed(self):
+        host = (self.headers.get("Host") or "").strip().lower()
+        if not host:
+            return False
+        if host not in ALLOWED_HOSTS:
+            # accepter aussi host:port construit a partir du host lie
+            if host.split(":")[0] not in ("127.0.0.1", "localhost"):
+                return False
+        return True
+
+    def _origin_allowed(self):
+        origin = (self.headers.get("Origin") or "").strip()
+        if not origin:
+            return True  # requetes same-origin / non-navigateur
+        return origin in ALLOWED_ORIGINS
+
+    def _reject_if_bad_host(self):
+        if not self._host_allowed():
+            self.send_json({"error": "host non autorise"}, 403)
+            return True
+        return False
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path, query = parsed.path, parse_qs(parsed.query)
+        if self._reject_if_bad_host():
+            return
         try:
             if path == "/api/models":        return self.send_json(get_models())
             if path == "/api/images":        return self.send_json(get_images(query))
@@ -1573,6 +1735,11 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        if self._reject_if_bad_host():
+            return
+        if not self._origin_allowed():
+            self.send_json({"error": "origin non autorise"}, 403)
+            return
         try:
             if path == "/api/comfyui/interrupt":
                 return self.send_json(comfy_interrupt())
@@ -1771,7 +1938,16 @@ class QuietServer(ThreadingHTTPServer):
 if __name__ == "__main__":
     os.makedirs(STATIC_DIR, exist_ok=True)
     init_db()
-    print(f"Flux Studio  ->  http://localhost:{PORT}")
+    host = "127.0.0.1"
+    if "--host" in sys.argv:
+        idx = sys.argv.index("--host")
+        if idx + 1 < len(sys.argv):
+            host = sys.argv[idx + 1]
+    ALLOWED_HOSTS.update({host, f"{host}:{PORT}", "127.0.0.1", "localhost",
+                          f"127.0.0.1:{PORT}", f"localhost:{PORT}"})
+    ALLOWED_ORIGINS.update({f"http://{host}:{PORT}", "http://127.0.0.1:8080",
+                            "http://localhost:8080"})
+    print(f"Flux Studio  ->  http://{host}:{PORT}")
     print(f"DB: {DB_PATH}")
     print(f"ComfyUI: {MODELS_DIR}")
-    QuietServer(("", PORT), Handler).serve_forever()
+    QuietServer((host, PORT), Handler).serve_forever()
