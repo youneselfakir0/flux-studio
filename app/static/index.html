@@ -23,8 +23,7 @@
     </div>
 
     <div class="topnav-tabs">
-      <button class="topnav-tab active" data-view="workflow"><span>◈</span> Workflow</button>
-      <button class="topnav-tab" data-view="app"><span>◉</span> App</button>
+      <button class="topnav-tab active" data-view="app"><span>◉</span> App</button>
       <button class="topnav-tab" data-view="gallery"><span>▦</span> Gallery</button>
       <button class="topnav-tab" data-view="models"><span>◫</span> Models</button>
       <button class="topnav-tab" data-view="prompts"><span>✦</span> Prompts</button>
@@ -53,6 +52,7 @@
         <button data-speed="balanced" class="on">Équilibré</button>
         <button data-speed="quality">Qualité</button>
       </div>
+      <button class="btn sm" id="advancedModeToggle" title="Afficher le canvas nodal (mode avance)">Mode avance</button>
       <button class="btn sm" id="validateGraphBtn" title="Valider le graphe sans le faire tourner (ne pollue pas la file ComfyUI)">✓ Valider</button>
       <button class="btn sm" id="warmupBtn" title="Pré-charge le modèle choisi dans la VRAM (accélère la 1re génération)">🔥 Pré-charge</button>
       <button class="btn sm" id="recentPromptsBtn" title="Prompts récents">↺ Récents</button>
@@ -67,7 +67,7 @@
   <div class="workspace" id="workspace">
  
     <!-- ===================== APP VIEW (simple) ===================== -->
-    <section id="view-app" class="view">
+    <section id="view-app" class="view active">
       <div class="view-content app-layout">
         <div class="app-card">
           <h1>Génération simple</h1>
@@ -132,7 +132,7 @@
     </section>
 
     <!-- ===================== WORKFLOW VIEW ===================== -->
-    <section id="view-workflow" class="view active">
+    <section id="view-workflow" class="view">
       <aside class="panel-left">
         <div class="panel-tabs">
           <button class="ptab active" data-ptab="quick">⚡ Prêt à l'emploi</button>
@@ -294,7 +294,7 @@
 <div id="toast" class="toast"></div>
 
 <!-- ===================== WORKFLOW TOOLBAR (floating) ===================== -->
-<div class="wf-toolbar" id="wfToolbar">
+<div class="wf-toolbar" id="wfToolbar" style="display:none">
   <button class="btn ghost sm" id="wfUndo" title="Undo (Ctrl+Z)">↶</button>
   <button class="btn ghost sm" id="wfRedo" title="Redo (Ctrl+Shift+Z)">↷</button>
   <span class="sep"></span>
