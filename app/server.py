@@ -299,15 +299,30 @@ _dl_lock = threading.Lock()
 _downloads = {}
 
 
+def _add_column_if_missing(conn, table, column, decl):
+    """Migration idempotente : ajoute une colonne si elle n'existe pas."""
+    cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in cols:
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+        except sqlite3.OperationalError:
+            pass
+
+
 def init_db():
-    """Cree TOUTES les tables utilisees par les endpoints (fresh clone OK)."""
+    """Cree TOUTES les tables utilisees par les endpoints (fresh clone OK).
+
+    - Contraintes UNIQUE sur les IDs Civitai (evite les doublons).
+    - Migration idempotente pour les bases existantes (colonnes manquantes).
+    - Indexes pour les jointures/tris de get_images().
+    """
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS models (
             id INTEGER PRIMARY KEY,
-            civitai_model_id INTEGER,
+            civitai_model_id INTEGER UNIQUE,
             name TEXT,
             type TEXT,
             base_model TEXT,
@@ -322,7 +337,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS model_versions (
             id INTEGER PRIMARY KEY,
             model_id INTEGER,
-            civitai_version_id INTEGER,
+            civitai_version_id INTEGER UNIQUE,
             name TEXT,
             base_model TEXT,
             published_at TEXT,
@@ -334,7 +349,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS images (
             id INTEGER PRIMARY KEY,
             model_version_id INTEGER,
-            civitai_image_id INTEGER,
+            civitai_image_id INTEGER UNIQUE,
             url TEXT,
             width INTEGER,
             height INTEGER,
@@ -366,8 +381,42 @@ def init_db():
             error TEXT, started_at REAL, completed_at REAL
         )
     """)
+
+    # Migration idempotente pour bases existantes (colonnes manquantes)
+    for col, decl in (("male", "INTEGER"), ("female", "INTEGER")):
+        _add_column_if_missing(conn, "images", col, decl)
+    for col, decl in (("civitai_model_id", "INTEGER"),):
+        _add_column_if_missing(conn, "models", col, decl)
+    for col, decl in (("civitai_version_id", "INTEGER"),):
+        _add_column_if_missing(conn, "model_versions", col, decl)
+    for col, decl in (("civitai_image_id", "INTEGER"),):
+        _add_column_if_missing(conn, "images", col, decl)
+
+    # Indexes pour les jointures/tris de get_images() et les contraintes uniques
+    index_sql = [
+        "CREATE INDEX IF NOT EXISTS idx_images_model_version ON images(model_version_id)",
+        "CREATE INDEX IF NOT EXISTS idx_images_civitai ON images(civitai_image_id)",
+        "CREATE INDEX IF NOT EXISTS idx_mv_model ON model_versions(model_id)",
+        "CREATE INDEX IF NOT EXISTS idx_models_civitai ON models(civitai_model_id)",
+        "CREATE INDEX IF NOT EXISTS idx_mv_civitai ON model_versions(civitai_version_id)",
+    ]
+    # Contraintes uniques (best-effort sur bases existantes)
+    unique_sql = [
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_models_civitai ON models(civitai_model_id)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_mv_civitai ON model_versions(civitai_version_id)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_images_civitai ON images(civitai_image_id)",
+    ]
+    for sql in index_sql + unique_sql:
+        try:
+            conn.execute(sql)
+        except sqlite3.OperationalError:
+            # doublons existants : on ignore pour ne pas casser le boot
+            pass
+
     conn.commit()
     conn.close()
+
+
 
 
 def _progress(did, **kw):
