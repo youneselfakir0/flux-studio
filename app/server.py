@@ -1586,7 +1586,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
-    def send_json(self, data, code=200, cors=True):
+    def send_json(self, data, code=200, cors=False):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         try:
             self.send_response(code)
@@ -1705,7 +1705,10 @@ class Handler(SimpleHTTPRequestHandler):
         rel = (rel or "").replace("\\", "/").replace("/", os.sep)
         full = os.path.normpath(os.path.join(loras_dir, rel))
         # Anti-traversement : le chemin resolu doit rester sous loras_dir
-        if not (full == loras_dir or full.startswith(loras_dir + os.sep)):
+        try:
+            if os.path.commonpath([os.path.abspath(full), os.path.abspath(loras_dir)]) != os.path.abspath(loras_dir):
+                return self.send_json({"error": "chemin invalide"}, 400)
+        except ValueError:
             return self.send_json({"error": "chemin invalide"}, 400)
         stem = os.path.splitext(full)[0]
         for ext in (".jpeg", ".jpg", ".png", ".webp"):
@@ -1749,8 +1752,15 @@ class Handler(SimpleHTTPRequestHandler):
             pass
 
     def _proxy(self, url):
-        if not url.startswith("http"):
+        if not url or not url.startswith("https://"):
             return self.send_json({"error": "url invalide"}, 400)
+        parsed = urllib.parse.urlparse(url)
+        host = (parsed.hostname or "").lower()
+        # Hotes approuves (Civitai et sous-domaines)
+        if not (host == "civitai.com" or host.endswith(".civitai.com")):
+            return self.send_json({"error": "hote non autorise"}, 403)
+        # Taille max de la reponse (25 Mo)
+        MAX_PROXY_BYTES = 25 * 1024 * 1024
 
         cp = cache_path_for(url)
         data = None
@@ -1773,6 +1783,8 @@ class Handler(SimpleHTTPRequestHandler):
                     with urllib.request.urlopen(req, timeout=30) as r:
                         data = r.read()
                         ctype = r.headers.get("Content-Type", "image/jpeg")
+                    if data is not None and len(data) > MAX_PROXY_BYTES:
+                        return self.send_json({"error": "reponse trop volumineuse"}, 413)
                     last_err = None
                     break
                 except Exception as e:
@@ -1849,6 +1861,12 @@ class Handler(SimpleHTTPRequestHandler):
                 n = int(self.headers.get("Content-Length", 0))
                 body = json.loads(self.rfile.read(n) or b"{}")
                 filepath = body.get("filepath", "")
+                # Validation : le fichier doit rester dans MODELS_DIR
+                try:
+                    if not filepath or os.path.commonpath([os.path.abspath(filepath), os.path.abspath(MODELS_DIR)]) != os.path.abspath(MODELS_DIR):
+                        return self.send_json({"error": "chemin hors du dossier models"}, 400)
+                except ValueError:
+                    return self.send_json({"error": "chemin invalide"}, 400)
                 return self.send_json(read_safetensors_header(filepath))
             if path == "/api/comfyui/upload-image":
                 # Proxy vers ComfyUI /upload/image (multipart), enregistre dans input/
@@ -1856,6 +1874,8 @@ class Handler(SimpleHTTPRequestHandler):
                 if "multipart/form-data" not in boundary:
                     return self.send_json({"error": "multipart attendu"}, 400)
                 length = int(self.headers.get("Content-Length", 0))
+                if length > 25 * 1024 * 1024:
+                    return self.send_json({"error": "upload trop volumineux"}, 413)
                 raw = self.rfile.read(length)
                 # ComfyUI attend le champ "image" (pas "file")
                 raw = raw.replace(b'name="file"', b'name="image"')
@@ -1886,6 +1906,19 @@ class Handler(SimpleHTTPRequestHandler):
                 folder = body.get("folder", "")
                 if not folder or not os.path.isdir(folder):
                     return self.send_json({"ok": False, "error": "Dossier introuvable"})
+                # Securite : n'ouvrir que des dossiers sous les racines approuvees
+                abs_folder = os.path.abspath(folder)
+                allowed_roots = [os.path.abspath(COMFYUI_ROOT), os.path.abspath(BASE_DIR)]
+                ok_root = False
+                for root in allowed_roots:
+                    try:
+                        if os.path.commonpath([abs_folder, root]) == root:
+                            ok_root = True
+                            break
+                    except ValueError:
+                        pass
+                if not ok_root:
+                    return self.send_json({"ok": False, "error": "Dossier hors des racines autorisees"})
                 try:
                     os.startfile(folder)
                     return self.send_json({"ok": True})
@@ -1900,7 +1933,10 @@ class Handler(SimpleHTTPRequestHandler):
                 # Sécurité : ne supprimer que dans le dossier models
                 abs_path = os.path.abspath(filepath)
                 abs_models = os.path.abspath(MODELS_DIR)
-                if not abs_path.startswith(abs_models):
+                try:
+                    if os.path.commonpath([abs_path, abs_models]) != abs_models:
+                        return self.send_json({"ok": False, "error": "Hors du dossier models"})
+                except ValueError:
                     return self.send_json({"ok": False, "error": "Hors du dossier models"})
                 try:
                     os.remove(filepath)
