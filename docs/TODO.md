@@ -48,4 +48,11 @@
 - BUG-04 — Bornes d'entrée sur `/api/comfyui/generate` : steps 1-80, dimensions 64-2048, CFG 0-30, prompt ≤ 10 000 caractères.
 
 ### Tests
-- `tests/test_security.py` : 18 tests (chemins, proxy/CORS, noms de fichiers, générateurs de workflows), `tests/run_tests.ps1`.
+- `tests/test_security.py` : 18 tests (chemins, proxy/CORS, noms de fichiers, générateurs de workflows).
+- `tests/test_hardening.py` : 13 tests (non-divulgation des erreurs, plafonds de concurrence/connexions, 429, limites de corps HTTP, régressions Host/Origin).
+- `tests/run_tests.ps1`.
+
+### Phase 5 — durcissement résiduel
+- Erreurs publiques génériques + `code` stable ; détails techniques uniquement dans `log_internal` (stderr), avec redaction de `CIVITAI_TOKEN`/`GEMINI_API_KEY`.
+- Plafonds non bloquants et configurables : `FLUX_MAX_GENERATE`, `FLUX_MAX_DOWNLOADS`, `FLUX_MAX_VISION`, `FLUX_MAX_PROXY`, `FLUX_MAX_SCAN`, `FLUX_MAX_CONNECTIONS`.
+- Saturation → HTTP 429 `{"code":"overloaded"}` + `Retry-After: 1` ; les routes légères ne sont jamais bloquées. Le plafond de connexions rejette avant la création du thread.
