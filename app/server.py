@@ -21,6 +21,14 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def is_within(path, root):
+    """Verifie qu'un chemin reste dans une racine (anti-traversment)."""
+    try:
+        return os.path.commonpath([os.path.abspath(path), os.path.abspath(root)]) == os.path.abspath(root)
+    except (ValueError, OSError):
+        return False
 DB_PATH = os.path.join(BASE_DIR, "data", "flux_studio.db")
 THUMB_CACHE_DIR = os.path.join(BASE_DIR, "data", "thumb_cache")
 PORT = 8080
@@ -1705,10 +1713,7 @@ class Handler(SimpleHTTPRequestHandler):
         rel = (rel or "").replace("\\", "/").replace("/", os.sep)
         full = os.path.normpath(os.path.join(loras_dir, rel))
         # Anti-traversement : le chemin resolu doit rester sous loras_dir
-        try:
-            if os.path.commonpath([os.path.abspath(full), os.path.abspath(loras_dir)]) != os.path.abspath(loras_dir):
-                return self.send_json({"error": "chemin invalide"}, 400)
-        except ValueError:
+        if not is_within(full, loras_dir):
             return self.send_json({"error": "chemin invalide"}, 400)
         stem = os.path.splitext(full)[0]
         for ext in (".jpeg", ".jpg", ".png", ".webp"):
