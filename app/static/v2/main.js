@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Flux Studio v2 — Main Entry Point
  * Boots all modules, wires views, handles navigation
  */
@@ -886,13 +886,21 @@ window.addEventListener('keydown', (e) => {
 
 /* ===================== VRAM Indicator ===================== */
 let _vramLoaded = false;
+let _vramSeq = 0;
+let _vramInFlight = false;
 async function updateVram() {
   if (document.hidden && _vramLoaded) return;
   const el = $("#vramIndicator");
   if (!el) return;
+  if (_vramInFlight) return;
+  _vramInFlight = true;
+  const seq = ++_vramSeq;
   try {
-    const r = await fetch("/api/comfyui/vram").then(x => x.json());
-    if (r.ok) {
+    const res = await fetch("/api/comfyui/vram");
+    if (seq !== _vramSeq) return;
+    const r = await res.json().catch(() => ({}));
+    if (seq !== _vramSeq) return;
+    if (r && r.ok) {
       const used = r.vram_used_gb;
       const total = r.vram_total_gb;
       el.textContent = `⚡ ${used.toFixed(1)}/${total.toFixed(1)} Go`;
@@ -900,8 +908,21 @@ async function updateVram() {
       if (used / total > 0.92) el.classList.add("crit");
       else if (used / total > 0.83) el.classList.add("warn");
       _vramLoaded = true;
+    } else {
+      el.textContent = `⚡ --/-- Go`;
+      el.classList.remove("warn", "crit");
+      el.classList.add("warn");
     }
-  } catch (e) {}
+  } catch (e) {
+    if (seq !== _vramSeq) return;
+    const el2 = $("#vramIndicator");
+    if (el2) {
+      el2.textContent = `⚡ N/A`;
+      el2.classList.remove("warn", "crit");
+    }
+  } finally {
+    _vramInFlight = false;
+  }
 }
 setInterval(updateVram, 2000);
 setTimeout(updateVram, 500);
@@ -915,23 +936,50 @@ function loadPrefs() {
   return p;
 }
 function savePrefs(p) {
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {}
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); return true; }
+  catch (e) { return false; }
 }
 function applyPrefsToUI(p) {
   const ckpt = $("#prefCkpt"); if (ckpt && p.ckpt) ckpt.value = p.ckpt;
   const steps = $("#prefSteps"); if (steps && p.steps) steps.value = p.steps;
   const cfg = $("#prefCfg"); if (cfg && p.cfg) cfg.value = p.cfg;
+  const out = $("#prefOutDir"); if (out && p.outDir) out.value = p.outDir;
   $("#prefRatio")?.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.ratio === (p.ratio || "1:1")));
   $("#prefNsfw")?.querySelectorAll("button").forEach(b => b.classList.toggle("on", +b.dataset.nsfw === (p.nsfw || 4)));
   $("#prefTheme")?.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.theme === (p.theme || "dark")));
 }
+function applyPrefsToApp(p) {
+  try {
+    const appModel = $("#appModel");
+    if (appModel && p.ckpt) {
+      const map = { "Flux.2 Klein": "flux2-klein", "Flux.1 D": "flux1-dev", "SDXL": "sdxl-base" };
+      const v = map[p.ckpt];
+      if (v && [...appModel.options].some(o => o.value === v)) appModel.value = v;
+    }
+    const appSteps = $("#appSteps"); if (appSteps && p.steps) appSteps.value = p.steps;
+    const appCfg = $("#appCfg"); if (appCfg && p.cfg) appCfg.value = p.cfg;
+    const sizes = { "1:1": [1024, 1024], "9:16": [768, 1344], "16:9": [1344, 768], "3:2": [1216, 832] };
+    if (p.ratio && sizes[p.ratio]) {
+      const [w, h] = sizes[p.ratio];
+      const aw = $("#appW"), ah = $("#appH");
+      if (aw) aw.value = w; if (ah) ah.value = h;
+    }
+  } catch (e) { console.warn("applyPrefsToApp", e); }
+  if (p.nsfw) { try { state.nsfwMax = p.nsfw; } catch (e) {} }
+  try {
+    if (p.theme === "light") document.documentElement.classList.add("theme-light");
+    else document.documentElement.classList.remove("theme-light");
+  } catch (e) {}
+}
+function applyPrefs(p) { applyPrefsToUI(p); applyPrefsToApp(p); }
 function openPrefs() {
   const m = $("#prefsModal"); if (!m) return;
   m.style.display = "flex";
+  m.classList.add("on");
   applyPrefsToUI(loadPrefs());
 }
 function closePrefs() {
-  const m = $("#prefsModal"); if (m) m.style.display = "none";
+  const m = $("#prefsModal"); if (m) { m.style.display = "none"; m.classList.remove("on"); }
 }
 $("#settingsBtn")?.addEventListener("click", openPrefs);
 $("#prefsCancel")?.addEventListener("click", closePrefs);
@@ -944,9 +992,14 @@ $("#prefsSave")?.addEventListener("click", () => {
   const r = $("#prefRatio")?.querySelector("button.on"); if (r) p.ratio = r.dataset.ratio;
   const n = $("#prefNsfw")?.querySelector("button.on"); if (n) p.nsfw = +n.dataset.nsfw;
   const t = $("#prefTheme")?.querySelector("button.on"); if (t) p.theme = t.dataset.theme;
-  savePrefs(p);
-  closePrefs();
-  toast("Préférences enregistrées");
+  const outEl = $("#prefOutDir"); if (outEl) p.outDir = outEl.value;
+  if (savePrefs(p)) {
+    applyPrefs(p);
+    closePrefs();
+    toast("Preferences saved");
+  } else {
+    toast("Echec", "error");
+  }
 });
 // ratio/nsfw/theme toggle buttons
 ["prefRatio","prefNsfw","prefTheme"].forEach(id => {
@@ -956,8 +1009,8 @@ $("#prefsSave")?.addEventListener("click", () => {
     b.classList.add("on");
   }));
 });
-// init prefs on load
-setTimeout(() => applyPrefsToUI(loadPrefs()), 300);
+// init prefs on load (synchronous, so edits are not clobbered)
+applyPrefs(loadPrefs());
 
 // ===================== BOOT =====================
 async function boot() {

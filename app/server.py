@@ -1233,14 +1233,32 @@ def comfy_history(prompt_id):
 
 
 def comfy_vram():
-    """VRAM utilisee/totale via ComfyUI /system_stats, repli nvidia-smi."""
+    """VRAM utilisee/totale via ComfyUI /system_stats, repli nvidia-smi.
+
+    On selectionne le GPU effectivement utilise par ComfyUI (et non le premier
+    de la liste) et on refuse de renvoyer des donnees partielles : si la
+    memoire libre est inconnue, l'indicateur remonte 'indisponible' plutot que
+    de faire croire que tout le GPU est utilise.
+    """
     total = None
     free = None
+    dev_index = 0
     try:
         st = _comfy_get("/system_stats", timeout=5)
-        dev = (st.get("devices") or [{}])[0]
-        total = dev.get("vram_total")
-        free = dev.get("vram_free")
+        devices = st.get("devices") or []
+        # GPU utilise = celui qui expose de la VRAM (le plus gros si plusieurs)
+        dev = None
+        for d in devices:
+            if d.get("vram_total") is not None:
+                if dev is None or (d.get("vram_total") or 0) > (dev.get("vram_total") or 0):
+                    dev = d
+        if dev is not None:
+            total = dev.get("vram_total")
+            free = dev.get("vram_free")
+            try:
+                dev_index = int(dev.get("index", 0))
+            except (TypeError, ValueError):
+                dev_index = 0
     except Exception:
         pass
     if total is None or free is None:
@@ -1249,25 +1267,30 @@ def comfy_vram():
             out = subprocess.check_output(
                 ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
                 timeout=5, stderr=subprocess.DEVNULL).decode("utf-8", "replace").strip().splitlines()
-            if out:
+            if out and dev_index < len(out):
+                used_s, total_s = out[dev_index].split(",")
+            elif out:
                 used_s, total_s = out[0].split(",")
+            else:
+                used_s = total_s = None
+            if used_s is not None and total_s is not None:
                 used_mb = float(used_s.strip())
                 total_mb = float(total_s.strip())
                 total = int(total_mb * 1024 * 1024)
                 free = int((total_mb - used_mb) * 1024 * 1024)
         except Exception:
             pass
-    if total is None:
+    if total is None or free is None:
         return {"ok": False, "error": "VRAM indisponible"}
-    used = total - (free or 0)
+    used = total - free
     return {
         "ok": True,
         "vram_total": total,
-        "vram_free": free or 0,
+        "vram_free": free,
         "vram_used": used,
         "vram_total_gb": round(total / (1024 ** 3), 2),
         "vram_used_gb": round(used / (1024 ** 3), 2),
-        "vram_free_gb": round((free or 0) / (1024 ** 3), 2),
+        "vram_free_gb": round(free / (1024 ** 3), 2),
     }
 
 
@@ -1563,12 +1586,13 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
-    def send_json(self, data, code=200):
+    def send_json(self, data, code=200, cors=True):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         try:
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            if cors:
+                self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -1634,7 +1658,9 @@ class Handler(SimpleHTTPRequestHandler):
             if path == "/api/comfyui/history":
                 return self.send_json(comfy_history(query.get("id", [""])[0]))
             if path == "/api/comfyui/vram":
-                return self.send_json(comfy_vram())
+                if not self._origin_allowed():
+                    return self.send_json({"ok": False, "error": "origin non autorise"}, 403, cors=False)
+                return self.send_json(comfy_vram(), cors=False)
             if path == "/api/comfyui/queue":
                 return self.send_json(comfy_queue())
             if path == "/api/comfyui/scan-files":
