@@ -40,7 +40,10 @@ export const api = {
       const fd = new FormData();
       fd.append('file', file);
       const url = '/api/comfyui/describe' + (model ? '?model=' + encodeURIComponent(model) : '');
-      return fetch(BASE + url, { method: 'POST', body: fd }).then(r => r.json());
+      return fetch(BASE + url, { method: 'POST', body: fd }).then(async r => {
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+        return r.json();
+      });
     },
     saveWorkflow: (name, workflow) => request('/api/comfyui/save_workflow', { method: 'POST', body: { name, workflow } }),
     generate: (body) => request('/api/comfyui/generate', { method: 'POST', body }),

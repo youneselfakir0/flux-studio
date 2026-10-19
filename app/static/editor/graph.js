@@ -290,24 +290,47 @@ export class Graph {
       // 4. Suivi
       const started = Date.now();
       const TIMEOUT_MS = 15 * 60 * 1000;
+      let consecutiveFailures = 0;
+      let delay = 1200;
       for (;;) {
         if (Date.now() - started > TIMEOUT_MS) {
-          return { ok: false, error: 'Delai depasse (15 min)', promptId };
+          return { ok: false, error: 'Delai depasse (15 min)', promptId,
+                   status: 'timed_out' };
         }
         let h;
         try {
-          h = await (await fetch(`/api/comfyui/history?id=${encodeURIComponent(promptId)}`)).json();
-        } catch { h = { status: 'pending' }; }
+          const res = await fetch(`/api/comfyui/history?id=${encodeURIComponent(promptId)}`);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          h = await res.json();
+          consecutiveFailures = 0;
+        } catch (e) {
+          consecutiveFailures++;
+          if (consecutiveFailures >= 5) {
+            return { ok: false, error: 'Connexion perdue avec ComfyUI', promptId,
+                     status: 'unknown' };
+          }
+          await new Promise(r => setTimeout(r, delay));
+          delay = Math.min(delay * 2, 5000);
+          continue;
+        }
 
-        if (h.status === 'done') {
+        const st = h.status;
+        if (st === 'succeeded' || st === 'done') {
           this.lastRun = { promptId, images: h.images || [] };
           Events.graph.emit('graph:executed', { promptId, images: h.images || [] });
-          return { ok: true, promptId, images: h.images || [] };
+          return { ok: true, promptId, images: h.images || [], status: 'succeeded' };
         }
-        if (h.status === 'error') {
-          return { ok: false, error: h.error || 'Erreur ComfyUI', node: h.node, promptId };
+        if (st === 'failed' || st === 'error') {
+          return { ok: false, error: h.error || 'Erreur ComfyUI', node: h.node,
+                   promptId, status: 'failed' };
         }
-        await new Promise(r => setTimeout(r, 1200));
+        if (st === 'unknown') {
+          return { ok: false, error: h.error || 'Statut inconnu', promptId,
+                   status: 'unknown' };
+        }
+        // queued / running / pending : continuer avec backoff leger
+        await new Promise(r => setTimeout(r, delay));
+        delay = 1200;
       }
     } finally {
       this.executing.value = false;

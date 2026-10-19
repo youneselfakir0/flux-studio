@@ -1211,14 +1211,40 @@ def _run_warmup(prompt):
 
 
 def comfy_history(prompt_id):
-    """Etat d'une execution : pending / done / error + images produites."""
+    """Etat d'une execution : queued / running / succeeded / failed / unknown.
+
+    Conserve les anciens alias (pending/done/error) pour compatibilite.
+    """
+    # Si ComfyUI est injoignable, on ne fait pas semblant que le job est en attente.
     try:
         data = _comfy_get(f"/history/{urllib.parse.quote(prompt_id)}", timeout=20)
     except Exception as e:
-        return {"status": "error", "error": f"ComfyUI injoignable : {e}"}
+        return {"status": "unknown", "error": f"ComfyUI injoignable : {e}",
+                "alias": "error"}
     entry = data.get(prompt_id)
     if not entry:
-        return {"status": "pending"}
+        # Pas encore dans l'historique : inspecter la file pour distinguer queued/running.
+        try:
+            q = _comfy_get("/queue", timeout=10)
+            running_ids = []
+            for item in (q.get("queue_running") or []):
+                try:
+                    running_ids.append(item[1])
+                except (TypeError, IndexError):
+                    pass
+            pending_ids = []
+            for item in (q.get("queue_pending") or []):
+                try:
+                    pending_ids.append(item[1])
+                except (TypeError, IndexError):
+                    pass
+            if prompt_id in running_ids:
+                return {"status": "running", "images": []}
+            if prompt_id in pending_ids:
+                return {"status": "queued", "images": []}
+        except Exception:
+            pass
+        return {"status": "pending", "images": []}
     st = entry.get("status") or {}
     imgs = []
     for nid, out in (entry.get("outputs") or {}).items():
@@ -1234,10 +1260,11 @@ def comfy_history(prompt_id):
             err_msg = d.get("exception_message") or "erreur d'execution"
             err_node = f"{d.get('node_type', '?')}#{d.get('node_id', '?')}"
     if st.get("status_str") == "error":
-        return {"status": "error", "error": err_msg, "node": err_node, "images": imgs}
-    if st.get("completed"):
-        return {"status": "done", "images": imgs}
-    return {"status": "pending", "images": imgs}
+        return {"status": "failed", "alias": "error", "error": err_msg,
+                "node": err_node, "images": imgs}
+    if st.get("completed") or st.get("status_str") == "success":
+        return {"status": "succeeded", "alias": "done", "images": imgs}
+    return {"status": "running", "alias": "pending", "images": imgs}
 
 
 def comfy_vram():
