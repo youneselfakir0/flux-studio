@@ -20,7 +20,13 @@ import hashlib
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Configuration centralisee
+from config import (BASE_DIR, DB_PATH, THUMB_CACHE_DIR, PORT, STATIC_DIR,
+                    COMFYUI_ROOT)
+MODELS_DIR = os.path.join(COMFYUI_ROOT, "models")
+WORKFLOWS_DIR = os.path.join(COMFYUI_ROOT, "user", "default", "workflows")
+ALLOWED_HOSTS = {"127.0.0.1", "localhost", "127.0.0.1:8080", "localhost:8080"}
+ALLOWED_ORIGINS = {"http://127.0.0.1:8080", "http://localhost:8080"}
 
 
 def is_within(path, root):
@@ -29,12 +35,6 @@ def is_within(path, root):
         return os.path.commonpath([os.path.abspath(path), os.path.abspath(root)]) == os.path.abspath(root)
     except (ValueError, OSError):
         return False
-DB_PATH = os.path.join(BASE_DIR, "data", "flux_studio.db")
-THUMB_CACHE_DIR = os.path.join(BASE_DIR, "data", "thumb_cache")
-PORT = 8080
-ALLOWED_HOSTS = {"127.0.0.1", "localhost", "127.0.0.1:8080", "localhost:8080"}
-ALLOWED_ORIGINS = {"http://127.0.0.1:8080", "http://localhost:8080"}
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
 def cache_path_for(url):
@@ -43,9 +43,6 @@ def cache_path_for(url):
     return os.path.join(THUMB_CACHE_DIR, h[:2], h)
 
 # ---------- ComfyUI ----------
-COMFYUI_ROOT = r"F:\f\ComfyUI"
-MODELS_DIR = os.path.join(COMFYUI_ROOT, "models")
-WORKFLOWS_DIR = os.path.join(COMFYUI_ROOT, "user", "default", "workflows")
 CIVITAI_TOKEN = os.environ.get("CIVITAI_TOKEN", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
@@ -2100,6 +2097,10 @@ if __name__ == "__main__":
     ALLOWED_ORIGINS.update({f"http://{host}:{PORT}", "http://127.0.0.1:8080",
                             "http://localhost:8080"})
     print(f"Flux Studio  ->  http://{host}:{PORT}")
+    print(f"Python: {sys.version.split()[0]}")
     print(f"DB: {DB_PATH}")
     print(f"ComfyUI: {MODELS_DIR}")
+    # Diagnostics rapides
+    print(f"ComfyUI root exists: {os.path.isdir(COMFYUI_ROOT)}")
+    print(f"DB dir writable: {os.access(os.path.dirname(DB_PATH), os.W_OK)}")
     QuietServer((host, PORT), Handler).serve_forever()
