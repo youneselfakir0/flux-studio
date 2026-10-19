@@ -503,13 +503,22 @@ def _do_download(did, model_id, version_id, file_id):
 
         ctype = model.get("type", "Checkpoint")
         dest_folder = CIVITAI_TO_COMFYUI.get(ctype, "checkpoints")
-        filename = f.get("name") or f"model_{version_id}.safetensors"
+        raw_name = f.get("name") or f"model_{version_id}.safetensors"
+        # SEC-04 : ne conserver qu'un nom de fichier simple, sans chemin
+        filename = os.path.basename(str(raw_name).replace("\\", "/"))
+        if (not filename or filename in (".", "..")
+                or "/" in filename or "\\" in filename):
+            filename = f"model_{version_id}.safetensors"
         if dest_folder == "workflows":
             dest_dir = WORKFLOWS_DIR
         else:
             dest_dir = os.path.join(MODELS_DIR, dest_folder)
         os.makedirs(dest_dir, exist_ok=True)
         dest_path = os.path.join(dest_dir, filename)
+        # Confinement reel
+        if not is_within(dest_path, dest_dir):
+            _progress(did, status="error", error="nom de fichier invalide")
+            return
 
         url = f.get("downloadUrl") or f"https://civitai.com/api/download/models/{version_id}?fileId={f.get('id')}"
         _progress(did, name=f"{model.get('name')} / {version.get('name')}",
@@ -1119,14 +1128,9 @@ def _drop_prompt(prompt_id, wait_empty=True):
         urllib.request.urlopen(req, timeout=5).read()
     except Exception:
         pass
-    # 2. Il est probablement deja en cours -> on interrompt
-    try:
-        req = urllib.request.Request(f"{COMFYUI_URL}/interrupt", data=b"{}",
-                                     headers={"Content-Type": "application/json"},
-                                     method="POST")
-        urllib.request.urlopen(req, timeout=5).read()
-    except Exception:
-        pass
+    # 2. NE PAS interrompre globalement : cela pourrait stopper une generation utilisateur.
+    # On se contente de retirer le prompt de la file. S'il est deja en cours, on laisse
+    # ComfyUI terminer et on ne bloque pas l'appelant.
     if not wait_empty:
         return False
     # 3. Attendre que la file soit vide (max 5 s)
@@ -1519,21 +1523,37 @@ def load_lora_index():
     return _LORA_INDEX_CACHE["data"] or {"count": 0, "stats": {}, "items": []}
 
 
-def _pick_installed_model(subfolder, patterns):
-    """Retourne le premier fichier installe correspondant a l'un des motifs (case-insensitive).
+_MODEL_EXTS = (".safetensors", ".ckpt", ".pt", ".pth", ".gguf", ".bin")
 
-    Permet aux workflows d'utiliser les noms reels plutot que des noms codes en dur.
+
+def _pick_installed_model(subfolders, patterns):
+    """Retourne le premier fichier installe correspondant a l'un des motifs.
+
+    `subfolders` peut etre une chaine ou une liste de sous-dossiers de MODELS_DIR.
+    Ne considere que les extensions de modeles connues et prefere les .safetensors.
     """
-    folder = os.path.join(MODELS_DIR, subfolder)
-    if not os.path.isdir(folder):
-        return None
+    if isinstance(subfolders, str):
+        subfolders = [subfolders]
     pats = [p.lower() for p in patterns]
-    for root, _dirs, files in os.walk(folder):
-        for fn in sorted(files):
-            low = fn.lower()
-            if any(p in low for p in pats):
-                return fn
-    return None
+    candidates = []
+    for sf in subfolders:
+        folder = os.path.join(MODELS_DIR, sf)
+        if not os.path.isdir(folder):
+            continue
+        for root, _dirs, files in os.walk(folder):
+            for fn in files:
+                low = fn.lower()
+                if not low.endswith(_MODEL_EXTS):
+                    continue
+                if not any(p in low for p in pats):
+                    continue
+                candidates.append(fn)
+    if not candidates:
+        return None
+    safetensors = [c for c in candidates if c.lower().endswith(".safetensors")]
+    pool = safetensors if safetensors else candidates
+    pool.sort()
+    return pool[0]
 
 
 # ---------- Workflow builders ----------
@@ -1543,72 +1563,60 @@ def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, s
     
     # Defaults par modèle
     if model == "Flux.2 Klein 4B":
-        ckpt = _pick_installed_model("unet", ["flux", "klein"]) or _pick_installed_model("checkpoints", ["flux", "klein"]) or "flux2_klein_4b.safetensors"
-        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["flux", "ae"]) or "ae.safetensors")
-        clip1 = _pick_installed_model("clip", ["t5xxl"]) or "t5xxl_fp8_e4m3fn.safetensors"
-        clip2 = _pick_installed_model("clip", ["clip_l"]) or "clip_l.safetensors"
-        loader = "DualCLIPLoader"
-        latent = "EmptyFlux2LatentImage"
-        guider = "BasicGuider"
-        sampler_node = "KSampler"
+        unet_name = _pick_installed_model(["diffusion_models", "unet", "checkpoints"], ["klein"]) or "flux-2-klein-4b.safetensors"
+        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["flux2-vae", "flux2"]) or "flux2-vae.safetensors")
+        clip_name = _pick_installed_model(["text_encoders", "clip"], ["qwen_3_4b"]) or "qwen_3_4b.safetensors"
         return {
-            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 1]}},
-            "4": {"class_type": loader, "inputs": {"clip_name1": clip1, "clip_name2": clip2}},
-            "5": {"class_type": sampler_node, "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
-            "6": {"class_type": latent, "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
-            "8": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
-            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["7", 0]}},
+            "1": {"class_type": "UNETLoader", "inputs": {"unet_name": unet_name, "weight_dtype": "default"}},
+            "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": clip_name, "type": "flux2"}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
+            "4": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["2", 0]}},
+            "5": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
+            "7": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": sampler if sampler in ("euler",) else "euler"}},
+            "8": {"class_type": "Flux2Scheduler", "inputs": {"steps": steps, "width": width, "height": height}},
+            "9": {"class_type": "CFGGuider", "inputs": {"model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0], "cfg": cfg}},
+            "10": {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["6", 0], "guider": ["9", 0], "sampler": ["7", 0], "sigmas": ["8", 0], "latent_image": ["5", 0]}},
+            "11": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
+            "12": {"class_type": "VAEDecode", "inputs": {"samples": ["10", 0], "vae": ["11", 0]}},
+            "13": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["12", 0]}},
         }
     
     elif model == "Flux.1 D":
-        ckpt = _pick_installed_model("unet", ["flux1", "flux-1", "flux_1"]) or _pick_installed_model("checkpoints", ["flux1", "flux-1", "flux_1"]) or "flux1-dev.safetensors"
-        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["flux", "ae"]) or "ae.safetensors")
-        clip1 = _pick_installed_model("clip", ["t5xxl"]) or "t5xxl_fp8_e4m3fn.safetensors"
-        clip2 = _pick_installed_model("clip", ["clip_l"]) or "clip_l.safetensors"
+        ckpt = _pick_installed_model("checkpoints", ["flux dev", "flux.1", "flux1", "flux"]) or "FLUX Dev (Quantized).safetensors"
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 1]}},
-            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": clip1, "clip_name2": clip2}},
-            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
-            "6": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
-            "8": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
-            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["7", 0]}},
+            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["1", 1]}},
+            "4": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
+            "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
+            "7": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["6", 0]}},
         }
     
     elif model == "SDXL":
-        ckpt = _pick_installed_model("checkpoints", ["sdxl", "xl"]) or "juggernautXL_v9.safetensors"
-        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["sdxl"]) or "sdxl_vae.safetensors")
+        ckpt = _pick_installed_model("checkpoints", ["sdxl", "xl"]) or "sd_xl_base_1.0.safetensors"
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 2]}},
-            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": _pick_installed_model("clip", ["clip_g"]) or "clip_g.safetensors", "clip_name2": _pick_installed_model("clip", ["clip_l"]) or "clip_l.safetensors"}},
-            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
-            "6": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
-            "8": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
-            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["7", 0]}},
+            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["1", 1]}},
+            "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
+            "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
+            "7": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["6", 0]}},
         }
     
     else:
-        # Fallback Flux
-        ckpt = _pick_installed_model("unet", ["flux", "klein"]) or "flux2_klein_4b.safetensors"
-        vae_name = _pick_installed_model("vae", ["flux", "ae"]) or "ae.safetensors"
+        # Fallback SDXL (checkpoint complet, plus fiable qu'un assemblage Flux partiel)
+        ckpt = _pick_installed_model("checkpoints", ["sd_xl", "sdxl", "xl"]) or "sd_xl_base_1.0.safetensors"
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 1]}},
-            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": _pick_installed_model("clip", ["t5xxl"]) or "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": _pick_installed_model("clip", ["clip_l"]) or "clip_l.safetensors"}},
-            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
-            "6": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
-            "8": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
-            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["7", 0]}},
+            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["1", 1]}},
+            "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
+            "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
+            "7": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["6", 0]}},
         }
 
 
@@ -1866,6 +1874,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"error": "origin non autorise"}, 403)
             return
         try:
+            if int(self.headers.get("Content-Length", 0) or 0) > 30 * 1024 * 1024:
+                return self.send_json({"error": "requete trop volumineuse"}, 413)
             if path == "/api/comfyui/interrupt":
                 return self.send_json(comfy_interrupt())
             if path == "/api/comfyui/validate":
@@ -2000,6 +2010,15 @@ class Handler(SimpleHTTPRequestHandler):
                 width = int(body.get("width") or 768)
                 height = int(body.get("height") or 1152)
                 sampler = body.get("sampler") or "euler"
+                # Bornes de securite
+                if steps < 1 or steps > 80:
+                    return self.send_json({"error": "steps hors plage (1-80)"}, 400)
+                if width < 64 or width > 2048 or height < 64 or height > 2048:
+                    return self.send_json({"error": "dimensions hors plage (64-2048)"}, 400)
+                if cfg < 0 or cfg > 30:
+                    return self.send_json({"error": "cfg hors plage (0-30)"}, 400)
+                if len(prompt) > 10000:
+                    return self.send_json({"error": "prompt trop long"}, 400)
                 scheduler = body.get("scheduler") or "simple"
                 seed = int(body.get("seed") or -1)
                 if seed < 0:
