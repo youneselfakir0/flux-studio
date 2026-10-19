@@ -1522,6 +1522,23 @@ def load_lora_index():
     return _LORA_INDEX_CACHE["data"] or {"count": 0, "stats": {}, "items": []}
 
 
+def _pick_installed_model(subfolder, patterns):
+    """Retourne le premier fichier installe correspondant a l'un des motifs (case-insensitive).
+
+    Permet aux workflows d'utiliser les noms reels plutot que des noms codes en dur.
+    """
+    folder = os.path.join(MODELS_DIR, subfolder)
+    if not os.path.isdir(folder):
+        return None
+    pats = [p.lower() for p in patterns]
+    for root, _dirs, files in os.walk(folder):
+        for fn in sorted(files):
+            low = fn.lower()
+            if any(p in low for p in pats):
+                return fn
+    return None
+
+
 # ---------- Workflow builders ----------
 def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, scheduler, seed, vae, clip):
     """Construit un workflow ComfyUI selon le modèle choisi."""
@@ -1529,10 +1546,10 @@ def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, s
     
     # Defaults par modèle
     if model == "Flux.2 Klein 4B":
-        ckpt = "flux2_klein_4b.safetensors"
-        vae_name = vae if vae != "auto" else "ae.safetensors"
-        clip1 = "t5xxl_fp8_e4m3fn.safetensors"
-        clip2 = "clip_l.safetensors"
+        ckpt = _pick_installed_model("unet", ["flux", "klein"]) or _pick_installed_model("checkpoints", ["flux", "klein"]) or "flux2_klein_4b.safetensors"
+        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["flux", "ae"]) or "ae.safetensors")
+        clip1 = _pick_installed_model("clip", ["t5xxl"]) or "t5xxl_fp8_e4m3fn.safetensors"
+        clip2 = _pick_installed_model("clip", ["clip_l"]) or "clip_l.safetensors"
         loader = "DualCLIPLoader"
         latent = "EmptyFlux2LatentImage"
         guider = "BasicGuider"
@@ -1550,10 +1567,10 @@ def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, s
         }
     
     elif model == "Flux.1 D":
-        ckpt = "flux1-dev.safetensors"
-        vae_name = vae if vae != "auto" else "ae.safetensors"
-        clip1 = "t5xxl_fp8_e4m3fn.safetensors"
-        clip2 = "clip_l.safetensors"
+        ckpt = _pick_installed_model("unet", ["flux1", "flux-1", "flux_1"]) or _pick_installed_model("checkpoints", ["flux1", "flux-1", "flux_1"]) or "flux1-dev.safetensors"
+        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["flux", "ae"]) or "ae.safetensors")
+        clip1 = _pick_installed_model("clip", ["t5xxl"]) or "t5xxl_fp8_e4m3fn.safetensors"
+        clip2 = _pick_installed_model("clip", ["clip_l"]) or "clip_l.safetensors"
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
             "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
@@ -1567,13 +1584,13 @@ def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, s
         }
     
     elif model == "SDXL":
-        ckpt = "juggernautXL_v9.safetensors"
-        vae_name = vae if vae != "auto" else "sdxl_vae.safetensors"
+        ckpt = _pick_installed_model("checkpoints", ["sdxl", "xl"]) or "juggernautXL_v9.safetensors"
+        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["sdxl"]) or "sdxl_vae.safetensors")
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
             "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
             "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 2]}},
-            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": "clip_g.safetensors", "clip_name2": "clip_l.safetensors"}},
+            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": _pick_installed_model("clip", ["clip_g"]) or "clip_g.safetensors", "clip_name2": _pick_installed_model("clip", ["clip_l"]) or "clip_l.safetensors"}},
             "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
             "6": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
             "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
@@ -1583,13 +1600,13 @@ def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, s
     
     else:
         # Fallback Flux
-        ckpt = "flux2_klein_4b.safetensors"
-        vae_name = "ae.safetensors"
+        ckpt = _pick_installed_model("unet", ["flux", "klein"]) or "flux2_klein_4b.safetensors"
+        vae_name = _pick_installed_model("vae", ["flux", "ae"]) or "ae.safetensors"
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
             "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
             "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 1]}},
-            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors"}},
+            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": _pick_installed_model("clip", ["t5xxl"]) or "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": _pick_installed_model("clip", ["clip_l"]) or "clip_l.safetensors"}},
             "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
             "6": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
             "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
