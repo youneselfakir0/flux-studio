@@ -37,6 +37,23 @@ def is_within(path, root):
         return False
 
 
+def safe_download_filename(raw_name, version_id):
+    """Reduit un nom fourni par une source distante a un nom de fichier simple.
+
+    SEC-04 : un nom comme `..\\..\\evil.safetensors` ou `/etc/passwd` ne doit
+    jamais permettre d'ecrire hors du dossier de destination. On ne conserve
+    que le dernier composant, on retire les separateurs restants et on refuser
+    les noms vides ou speciaux.
+    """
+    filename = os.path.basename(str(raw_name).replace("\\", "/")).strip()
+    filename = filename.replace("/", "").replace("\\", "")
+    if (not filename or filename in (".", "..")
+            or filename in (os.path.sep, os.path.altsep)
+            or re.search(r'[<>:"|?*\x00-\x1f]', filename)):
+        return f"model_{version_id}.safetensors"
+    return filename
+
+
 def cache_path_for(url):
     """Chemin de cache disque pour une URL distante (sha1, 2 niveaux)."""
     h = hashlib.sha1(url.encode("utf-8")).hexdigest()
@@ -505,10 +522,7 @@ def _do_download(did, model_id, version_id, file_id):
         dest_folder = CIVITAI_TO_COMFYUI.get(ctype, "checkpoints")
         raw_name = f.get("name") or f"model_{version_id}.safetensors"
         # SEC-04 : ne conserver qu'un nom de fichier simple, sans chemin
-        filename = os.path.basename(str(raw_name).replace("\\", "/"))
-        if (not filename or filename in (".", "..")
-                or "/" in filename or "\\" in filename):
-            filename = f"model_{version_id}.safetensors"
+        filename = safe_download_filename(raw_name, version_id)
         if dest_folder == "workflows":
             dest_dir = WORKFLOWS_DIR
         else:
@@ -1583,15 +1597,20 @@ def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, s
         }
     
     elif model == "Flux.1 D":
-        ckpt = _pick_installed_model("checkpoints", ["flux dev", "flux.1", "flux1", "flux"]) or "FLUX Dev (Quantized).safetensors"
+        unet_name = _pick_installed_model(["diffusion_models", "unet", "checkpoints"], ["flux1", "flux-1", "flux_1"]) or "flux1-dev-fp8.safetensors"
+        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["ae.safetensors", "ae"]) or "ae.safetensors")
+        clip1 = _pick_installed_model(["text_encoders", "clip"], ["t5xxl"]) or "t5xxl_fp8_e4m3fn.safetensors"
+        clip2 = _pick_installed_model(["text_encoders", "clip"], ["clip_l"]) or "clip_l.safetensors"
         return {
-            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["1", 1]}},
-            "4": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
-            "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
-            "7": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["6", 0]}},
+            "1": {"class_type": "UNETLoader", "inputs": {"unet_name": unet_name, "weight_dtype": "default"}},
+            "2": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": clip1, "clip_name2": clip2, "type": "flux"}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
+            "4": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["2", 0]}},
+            "5": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "6": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0], "latent_image": ["5", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
+            "7": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
+            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["7", 0]}},
+            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["8", 0]}},
         }
     
     elif model == "SDXL":
