@@ -163,6 +163,36 @@ class TestGenerateWorkflow(unittest.TestCase):
         clip = next(n for n in wf.values() if n["class_type"] == "DualCLIPLoader")
         self.assertEqual(clip["inputs"]["type"], "flux")
 
+    def test_latent_node_matches_model_family_and_dimensions(self):
+        expected = {
+            "Flux.2 Klein 4B": "EmptyFlux2LatentImage",
+            "Flux.1 D": "EmptySD3LatentImage",
+            "SDXL": "EmptyLatentImage",
+        }
+        for model, node_type in expected.items():
+            wf = self._wf(model)
+            classes = self._classes(wf)
+            self.assertIn(node_type, classes, model)
+            latent = next(n for n in wf.values() if n["class_type"] == node_type)
+            self.assertEqual(latent["inputs"]["width"], 512, model)
+            self.assertEqual(latent["inputs"]["height"], 512, model)
+        self.assertNotIn(
+            "EmptyFlux2LatentImage",
+            self._classes(self._wf("Flux.1 D")),
+            "FLUX.1 doit utiliser un latent 16 canaux / downscale 8",
+        )
+
+    def test_flux1_forces_cfg_one_without_changing_sdxl(self):
+        flux = server.build_generate_workflow(
+            "Flux.1 D", "a cat", 512, 512, 20, 3.5, "euler", "simple", 42, "auto", "auto")
+        flux_sampler = next(n for n in flux.values() if n["class_type"] == "KSampler")
+        self.assertEqual(flux_sampler["inputs"]["cfg"], 1.0)
+
+        sdxl = server.build_generate_workflow(
+            "SDXL", "a cat", 512, 512, 20, 3.5, "euler", "simple", 42, "auto", "auto")
+        sdxl_sampler = next(n for n in sdxl.values() if n["class_type"] == "KSampler")
+        self.assertEqual(sdxl_sampler["inputs"]["cfg"], 3.5)
+
     def test_sdxl_uses_checkpoint(self):
         classes = self._classes(self._wf("SDXL"))
         self.assertIn("CheckpointLoaderSimple", classes)

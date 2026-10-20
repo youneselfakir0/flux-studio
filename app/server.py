@@ -1710,13 +1710,15 @@ def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, s
         vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["ae.safetensors", "ae"]) or "ae.safetensors")
         clip1 = _pick_installed_model(["text_encoders", "clip"], ["t5xxl"]) or "t5xxl_fp8_e4m3fn.safetensors"
         clip2 = _pick_installed_model(["text_encoders", "clip"], ["clip_l"]) or "clip_l.safetensors"
+        # FLUX.1 Dev est distille : le blueprint ComfyUI utilise cfg=1.0.
+        # Appliquer le CFG de l'UI (3.5 par defaut) rend l'image molle.
         return {
             "1": {"class_type": "UNETLoader", "inputs": {"unet_name": unet_name, "weight_dtype": "default"}},
             "2": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": clip1, "clip_name2": clip2, "type": "flux"}},
             "3": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
             "4": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["2", 0]}},
-            "5": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "6": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0], "latent_image": ["5", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
+            "5": {"class_type": "EmptySD3LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "6": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0], "latent_image": ["5", 0], "seed": seed, "steps": steps, "cfg": 1.0, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
             "7": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
             "8": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["7", 0]}},
             "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["8", 0]}},
