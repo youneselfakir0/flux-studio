@@ -1,5 +1,7 @@
 # Flux Studio v2
 
+Documentation publique : [présentation du projet](https://youneselfakir0.github.io/flux-studio/) · [guide pas à pas](https://youneselfakir0.github.io/flux-studio/guide.html)
+
 Studio local (Windows) pour gérer une base de prompts Civitai (femmes IA, NSFW jusqu'à X) et piloter ComfyUI (RTX 3060 12 Go) avec un éditeur nodal, des workflows one-click et une palette LoRA instantanée.
 
 - **Frontend** : SPA vanilla JS (pas de framework), design dark studio pro (tokens Stitch).
@@ -11,7 +13,7 @@ Studio local (Windows) pour gérer une base de prompts Civitai (femmes IA, NSFW 
 
 - Windows 10/11
 - Python 3.11+
-- ComfyUI installé dans `F:\f\ComfyUI` (ou ajuster `COMFYUI_ROOT` dans `app/server.py`)
+- ComfyUI installé dans `F:\f\ComfyUI` (ou configurer `COMFYUI_ROOT` dans `.env`)
 - NVIDIA GPU (12 Go VRAM recommandé ; 8 Go minimum pour SDXL)
 - (optionnel) ComfyUI-Manager pour le custom node de cache
 
@@ -40,10 +42,20 @@ Ouvrir http://localhost:8080.
 Copier `.env.example` en `.env` et renseigner :
 
 ```
+FLUX_STUDIO_PORT=8080
+FLUX_STUDIO_DATA_DIR=        # optionnel ; dossier par défaut : ./data
+FLUX_STUDIO_DB_PATH=         # optionnel ; ./data/flux_studio.db par défaut
+FLUX_STUDIO_THUMB_CACHE_DIR= # optionnel ; ./data/thumb_cache par défaut
+COMFYUI_ROOT=F:\f\ComfyUI
+COMFYUI_URL=http://127.0.0.1:8188
 GEMINI_API_KEY=...        # Google AI Studio
 CIVITAI_TOKEN=...         # Civitai API token
 GEMINI_MODEL=gemini-3.1-flash-lite
 ```
+
+Les variables du processus prennent priorité sur `.env`. Le serveur écoute sur
+`127.0.0.1` par défaut ; l'option `--host` reste nécessaire pour choisir une
+adresse d'écoute différente.
 
 Sous Windows PowerShell, avant de lancer :
 
@@ -85,7 +97,7 @@ Le frontend détecte automatiquement le nœud au boot et bascule les workflows d
 
 ### Modèles
 - Scanner local (`↻ Rescan`) des modèles installés dans ComfyUI.
-- Recherche Civitai + téléchargement one-click vers le bon dossier.
+- Recherche Civitai + téléchargement one-click vers le bon dossier (limite de 25 Gio par fichier ; l'espace libre est réservé entre téléchargements concurrents, jusqu'à 25 Gio si la taille est inconnue ; les modèles et métadonnées existants ne sont pas écrasés).
 
 ## Pipelines validés
 
@@ -93,8 +105,23 @@ Le frontend détecte automatiquement le nœud au boot et bascule les workflows d
 - **FLUX.1 Dev** (24 steps)
 - **SDXL** (24 steps), SD 1.5, LTX Video, Z-Image, Qwen
 
+## Tests de régression
+
+Les tests locaux n'ont pas besoin de ComfyUI ni de GPU :
+
+```powershell
+python -m unittest discover -s tests -v
+node --test tests_js\graph.test.mjs
+```
+
 ## Points techniques importants
 
+- Les erreurs API gardent un statut HTTP et renvoient `ok: false`, `error`,
+  `code` et `details`. Le client partagé les expose comme `ApiError` ; une
+  indisponibilité ComfyUI n'est pas présentée comme une file vide. Les entrées
+  invalides renvoient 400, les ressources absentes 404 et les dépendances
+  indisponibles 502/503. L'état d'une génération terminée en erreur reste une
+  réponse 200 de l'endpoint d'historique, car la requête d'état a réussi.
 - **VRAM 12 Go** : le frontend auto-libère la VRAM si insuffisante avant un run, et détecte la VRAM faible au démarrage.
 - **Séparateurs Windows** : le serveur lit les combos depuis `/object_info` (jamais depuis le disque), pour éviter les erreurs `Value not in list`.
 - **Empty string widgets** envoyés à ComfyUI (inputs requis).
@@ -106,7 +133,12 @@ Le frontend détecte automatiquement le nœud au boot et bascule les workflows d
 ```
 flux-studio/
 ├── app/
-│   ├── server.py              # API + bridge ComfyUI
+│   ├── config.py              # configuration locale et variables d'environnement
+│   ├── database.py            # schema SQLite et requêtes catalogue
+│   ├── server.py              # routes API HTTP et bootstrap
+│   ├── comfyui.py             # bridge ComfyUI, modèles, génération et workflows
+│   ├── civitai.py             # recherche et téléchargements Civitai
+│   ├── vision.py              # métadonnées d'images, Gemini et Ollama
 │   └── static/
 │       ├── v2/                # SPA v2 (main.js, editor.css, vision.css)
 │       ├── editor/            # graphe nodal
@@ -124,6 +156,8 @@ flux-studio/
 │   ├── TODO.md
 │   └── PLAN_CORRECTION.md
 ├── scraper/                   # scripts de scraping/indexation
+├── tests/                     # tests API/configuration (unittest)
+├── tests_js/                  # tests graph et flux d'exécution (node:test)
 ├── design/                    # maquettes Stitch
 ├── .env.example
 └── .gitignore
