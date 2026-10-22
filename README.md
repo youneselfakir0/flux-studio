@@ -2,7 +2,7 @@
 
 Documentation publique : [présentation du projet](https://youneselfakir0.github.io/flux-studio/) · [guide pas à pas](https://youneselfakir0.github.io/flux-studio/guide.html)
 
-Studio local (Windows) pour gérer une base de prompts Civitai (femmes IA, NSFW jusqu'à X) et piloter ComfyUI (RTX 3060 12 Go) avec un éditeur nodal, des workflows one-click et une palette LoRA instantanée.
+Studio local (Windows) pour gérer une base de prompts Civitai (femmes IA, NSFW jusqu'à X) et piloter ComfyUI (RTX 3060 12 Go) avec un éditeur nodal, des workflows one-click et une palette LoRA instantanée. C’est aussi un terrain de pratique de l’IA appliquée au soutien informatique, en explorant la fiabilité des intégrations et les connexions entre outils.
 
 - **Frontend** : SPA vanilla JS (pas de framework), design dark studio pro (tokens Stitch).
 - **Backend** : Python `ThreadingHTTPServer` (port 8080) + bridge ComfyUI (port 8188).
