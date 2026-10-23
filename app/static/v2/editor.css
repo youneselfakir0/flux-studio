@@ -20,7 +20,11 @@
 body { overflow: hidden; }
 
 /* ===================== Layout v2 ===================== */
-/* old .app rule removed - now in sidebar section */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
 
 .topnav {
   height: 56px;
@@ -327,38 +331,7 @@ body { overflow: hidden; }
 .node-context-menu hr { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
 
 /* ===================== Gallery ===================== */
-.app { display: flex; flex-direction: row; height: 100vh; overflow: hidden; }
-
-.sidebar {
-  width: 220px;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px 12px;
-  background: var(--surface-glass);
-  backdrop-filter: blur(16px);
-  border-right: 1px solid var(--line);
-  overflow-y: auto;
-  z-index: 10;
-}
-.sidebar-brand { display: flex; align-items: center; gap: 8px; padding: 4px 8px 12px; }
-.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
-.sidebar-tab {
-  border: none; background: transparent; color: var(--muted);
-  font: inherit; font-size: 13px; padding: 10px 14px; border-radius: var(--r, 10px);
-  cursor: pointer; transition: .18s; display: flex; align-items: center; gap: 8px;
-  font-weight: 500; text-align: left; width: 100%;
-}
-.sidebar-tab:hover { color: var(--text); background: var(--surface-2); }
-.sidebar-tab.active { background: var(--primary, #7c5cff); color: #fff; box-shadow: 0 4px 16px rgba(124,92,255,0.3); }
-.sidebar-tab span { font-size: 15px; }
-.sidebar-sep { height: 1px; background: var(--line, rgba(255,255,255,0.08)); margin: 8px 0; }
-.sidebar-actions { display: flex; flex-direction: column; gap: 8px; }
-.sidebar-actions .segmented { display: flex; }
-.sidebar-actions .btn { width: 100%; justify-content: center; }
-
-.main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.gallery { display: flex; flex-direction: column; height: 100%; }
 .gallery-toolbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 0; gap: 12px; flex-wrap: wrap;

@@ -122,7 +122,7 @@ $$(".ptab").forEach(b => b.onclick = () => {
 
 // ===================== NAVIGATION =====================
 function go(view) {
-  $$(".sidebar-tab").forEach(t => t.classList.toggle("active", t.dataset.view === view));
+  $$(".topnav-tab").forEach(t => t.classList.toggle("active", t.dataset.view === view));
   $$(".view").forEach(v => v.classList.remove("active"));
   const el = $("#view-" + view);
   if (el) el.classList.add("active");
@@ -144,7 +144,7 @@ function go(view) {
   if (view === "workflow") setTimeout(() => canvas?.resize(), 50);
   if (view === "app") populateAppLoras();
 }
-$$(".sidebar-tab").forEach(t => t.onclick = () => go(t.dataset.view));
+$$(".topnav-tab").forEach(t => t.onclick = () => go(t.dataset.view));
 
 // ===================== PONT D'ÉVÉNEMENTS (modules -> shell) =====================
 // Les modules (Prompt Studio, Gallery…) émettent sur le bus ; le shell traduit

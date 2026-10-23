@@ -16,55 +16,60 @@
 
 <div class="app" id="app">
 
-  <!-- ===================== SIDEBAR (SeaArt-style) ===================== -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
+  <!-- ===================== TOP NAV ===================== -->
+  <nav class="topnav">
+    <div class="topnav-brand">
       <div class="brand-mark"></div>
       <span class="brand-name">Flux Studio <small>v2</small></span>
     </div>
 
-    <div class="sidebar-nav">
-      <button class="sidebar-tab active" data-view="app"><span>◉</span> App</button>
-      <button class="sidebar-tab" data-view="gallery"><span>▦</span> Gallery</button>
-      <button class="sidebar-tab" data-view="models"><span>◫</span> Models</button>
-      <button class="sidebar-tab" data-view="prompts"><span>✦</span> Prompts</button>
-      <button class="sidebar-tab" data-view="canvas2d"><span>✎</span> Canvas</button>
-      <button class="sidebar-tab" data-view="comfyui"><span>❖</span> ComfyUI</button>
-      <button class="sidebar-tab" data-view="profil"><span>◍</span> Profil</button>
+    <div class="topnav-tabs">
+      <button class="topnav-tab active" data-view="app"><span>◉</span> App</button>
+      <button class="topnav-tab" data-view="gallery"><span>▦</span> Gallery</button>
+      <button class="topnav-tab" data-view="models"><span>◫</span> Models</button>
+      <button class="topnav-tab" data-view="prompts"><span>✦</span> Prompts</button>
+      <button class="topnav-tab" data-view="canvas2d"><span>✎</span> Canvas</button>
+      <button class="topnav-tab" data-view="comfyui"><span>❖</span> ComfyUI</button>
+      <button class="topnav-tab" data-view="profil"><span>◍</span> Profil</button>
     </div>
 
-    <div class="sidebar-sep"></div>
+    <div class="topnav-spacer"></div>
 
-    <div class="sidebar-actions">
-      <div class="segmented" id="nsfwSeg" title="Niveau NSFW maximum">
-        <button data-lvl="1">None</button>
-        <button data-lvl="2">Soft</button>
-        <button data-lvl="3">Mature</button>
-        <button class="on" data-lvl="4">X</button>
+    <div class="topnav-actions">
+      <div class="topnav-group">
+        <div class="segmented" id="nsfwSeg" title="Niveau NSFW maximum">
+          <button data-lvl="1">None</button>
+          <button data-lvl="2">Soft</button>
+          <button data-lvl="3">Mature</button>
+          <button class="on" data-lvl="4">X</button>
+        </div>
+        <label class="switch" title="Flouter le contenu NSFW">
+          <input type="checkbox" id="safeToggle" checked>
+          <span class="track"></span>
+          <span>Safe</span>
+        </label>
+        <span class="badge" id="statBadge">—</span>
+        <div class="segmented" id="speedSeg" title="Vitesse de génération">
+          <button data-speed="fast">Rapide</button>
+          <button data-speed="balanced" class="on">Équilibré</button>
+          <button data-speed="quality">Qualité</button>
+        </div>
       </div>
-      <label class="switch" title="Flouter le contenu NSFW">
-        <input type="checkbox" id="safeToggle" checked>
-        <span class="track"></span>
-        <span>Safe</span>
-      </label>
-      <span class="badge" id="statBadge">—</span>
-      <div class="segmented" id="speedSeg" title="Vitesse de génération">
-        <button data-speed="fast">Rapide</button>
-        <button data-speed="balanced" class="on">Équilibré</button>
-        <button data-speed="quality">Qualité</button>
+      <div class="topnav-sep"></div>
+      <div class="topnav-group">
+        <button class="btn sm" id="warmupBtn" title="Pré-charge le modèle choisi dans la VRAM">🔥 Pré-charge</button>
+        <button class="btn sm" id="validateGraphBtn" title="Valider le graphe sans le faire tourner">✓ Valider</button>
+        <button class="btn primary sm" id="executeGraphBtn" title="Execute workflow (Ctrl+Enter)">▶ Run</button>
       </div>
-      <button class="btn sm" id="warmupBtn" title="Pré-charge le modèle">🔥 Pré-charge</button>
-      <button class="btn sm" id="validateGraphBtn" title="Valider le graphe">✓ Valider</button>
-      <button class="btn primary sm" id="executeGraphBtn" title="Run (Ctrl+Enter)">▶ Run</button>
-      <button class="btn sm" id="advancedModeToggle" title="Mode avancé">Mode avance</button>
-      <button class="btn sm" id="recentPromptsBtn" title="Récents">↺ Récents</button>
-      <button class="btn sm" id="autoLoraBtn" title="Auto-LoRA">✨ Auto-LoRA</button>
-      <button class="btn sm" id="freeMemoryBtn" title="Libérer VRAM">🧹 Libérer</button>
+      <div class="topnav-sep"></div>
+      <div class="topnav-group topnav-group--advanced">
+        <button class="btn sm" id="advancedModeToggle" title="Afficher le canvas nodal (mode avance)">Mode avance</button>
+        <button class="btn sm" id="recentPromptsBtn" title="Prompts récents">↺ Récents</button>
+        <button class="btn sm" id="autoLoraBtn" title="Suggérer des LoRA selon le prompt actuel">✨ Auto-LoRA</button>
+        <button class="btn sm" id="freeMemoryBtn" title="Libérer la mémoire VRAM/RAM ComfyUI">🧹 Libérer</button>
+      </div>
     </div>
-  </aside>
-
-  <!-- ===================== MAIN ===================== -->
-  <div class="main-area">
+  </nav>
 
   <div id="recentPromptsDropdown" class="recent-dropdown" style="display:none"></div>
   <div id="autoLoraDropdown" class="recent-dropdown" style="display:none"></div>
@@ -369,7 +374,6 @@
       <button class="btn ghost" id="genCancel">Annuler</button>
       <button class="btn primary" id="genRun">Lancer → ComfyUI</button>
     </div>
-  </div>
   </div>
 </div>
 
