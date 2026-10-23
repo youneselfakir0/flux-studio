@@ -745,7 +745,9 @@ async function appGenerate() {
       const imgs = res.images || [];
       const box = $("#appResult");
       const imgBox = $("#appResultImg");
+      const empty = $("#appPreviewEmpty");
       box.style.display = "block";
+      if (empty) empty.style.display = "none";
       imgBox.innerHTML = imgs.map(im => {
         const src = "/api/comfyui/image?filename=" + encodeURIComponent(im.filename) +
           "&subfolder=" + encodeURIComponent(im.subfolder || "") +

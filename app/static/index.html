@@ -69,66 +69,63 @@
  
     <!-- ===================== APP VIEW (simple) ===================== -->
     <section id="view-app" class="view active">
-      <div class="view-content app-layout">
-        <div class="app-card">
-          <h1>Génération simple</h1>
-          <p class="app-sub">Pas de nœuds, pas de câblage. Choisis un modèle, décris, génère.</p>
-
-          <label>Modèle</label>
-          <select id="appModel">
-            <option value="sdxl-base">SDXL — Base (recommandé)</option>
-            <option value="sdxl-turbo">SDXL — Turbo (rapide, 4 étapes)</option>
-            <option value="flux2-klein">FLUX.2 Klein (4B, rapide)</option>
-            <option value="flux1-dev">FLUX.1 Dev (qualité, lent)</option>
-            <option value="sd15-base">SD 1.5 (léger)</option>
-          </select>
-
-          <label>Prompt (positif)</label>
-          <textarea id="appPrompt" rows="3" placeholder="a beautiful woman, portrait, soft light, 8k"></textarea>
-
-          <label>Prompt (négatif)</label>
-          <textarea id="appNeg" rows="2" placeholder="blurry, bad anatomy, watermark"></textarea>
-
-          <div class="app-row">
-            <div class="app-field">
-              <label>Largeur</label>
-              <select id="appW"><option>512</option><option selected>768</option><option>1024</option></select>
+      <div class="app-layout">
+        <div class="app-preview">
+          <div class="app-preview-head">
+            <h1>Génération</h1>
+            <p class="app-sub">Choisis un modèle, décris, génère. Le résultat s'affiche en grand.</p>
+          </div>
+          <div class="app-preview-area" id="appPreviewArea">
+            <div class="app-preview-empty" id="appPreviewEmpty">
+              <div class="big">✦</div>
+              <b>Aucune image</b>
+              <div class="mt">Remplis le prompt à droite puis clique Générer.</div>
             </div>
-            <div class="app-field">
-              <label>Hauteur</label>
-              <select id="appH"><option>512</option><option selected>768</option><option>1024</option></select>
-            </div>
-            <div class="app-field">
-              <label>Steps</label>
-              <input type="number" id="appSteps" value="24" min="1" max="60">
-            </div>
-            <div class="app-field">
-              <label>CFG</label>
-              <input type="number" id="appCfg" value="7" min="1" max="20" step="0.5">
+            <div class="app-result" id="appResult" style="display:none;">
+              <div id="appResultImg"></div>
             </div>
           </div>
-
-          <div class="app-row">
-            <div class="app-field" style="flex:2">
-              <label>Seed (laisser vide = aléatoire)</label>
-              <input type="number" id="appSeed" placeholder="aléatoire">
-            </div>
-            <div class="app-field">
-              <label>LoRA</label>
-              <select id="appLora"><option value="">Aucun</option></select>
-            </div>
+        </div>
+        <aside class="app-params">
+          <div class="app-param-group">
+            <label>Modèle</label>
+            <select id="appModel">
+              <option value="sdxl-base">SDXL — Base (recommandé)</option>
+              <option value="sdxl-turbo">SDXL — Turbo (rapide, 4 étapes)</option>
+              <option value="flux2-klein">FLUX.2 Klein (4B, rapide)</option>
+              <option value="flux1-dev">FLUX.1 Dev (qualité, lent)</option>
+              <option value="sd15-base">SD 1.5 (léger)</option>
+            </select>
           </div>
-
+          <div class="app-param-group">
+            <label>Prompt (positif)</label>
+            <textarea id="appPrompt" rows="4" placeholder="a beautiful woman, portrait, soft light, 8k"></textarea>
+          </div>
+          <div class="app-param-group">
+            <label>Prompt (négatif)</label>
+            <textarea id="appNeg" rows="2" placeholder="blurry, bad anatomy, watermark"></textarea>
+          </div>
+          <div class="app-row">
+            <div class="app-field"><label>Largeur</label><select id="appW"><option>512</option><option selected>768</option><option>1024</option></select></div>
+            <div class="app-field"><label>Hauteur</label><select id="appH"><option>512</option><option selected>768</option><option>1024</option></select></div>
+          </div>
+          <div class="app-row">
+            <div class="app-field"><label>Steps</label><input type="number" id="appSteps" value="24" min="1" max="60"></div>
+            <div class="app-field"><label>CFG</label><input type="number" id="appCfg" value="7" min="1" max="20" step="0.5"></div>
+          </div>
+          <div class="app-param-group">
+            <label>Seed (laisser vide = aléatoire)</label>
+            <input type="number" id="appSeed" placeholder="aléatoire">
+          </div>
+          <div class="app-param-group">
+            <label>LoRA</label>
+            <select id="appLora"><option value="">Aucun</option></select>
+          </div>
           <div class="app-actions">
             <button class="btn primary" id="appGenerate">▶ Générer</button>
             <button class="btn ghost" id="appDescribe">🖼 Depuis une image</button>
           </div>
-
-          <div class="app-result" id="appResult" style="display:none;">
-            <div class="app-result-head">Résultat</div>
-            <div id="appResultImg"></div>
-          </div>
-        </div>
+        </aside>
       </div>
     </section>
 

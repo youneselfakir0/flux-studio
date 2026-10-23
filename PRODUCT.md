@@ -41,6 +41,7 @@ Studio local asset-first : les LoRAs et les modèles sont des entrées de premie
 
 **Capacité à construire**
 - Générateur de prompts à partir de l'index LoRA local (475 entrées avec triggers et tags) : assembler des prompts en combinant les triggers des LoRAs sélectionnés, les tags et une base textuelle.
+- Refonte du Mode App en interface unifiée InvokeAI-like (grande prévisualisation + panneau paramètres compact). Le Mode Workflow / Avancé est abandonné au profit du Mode App seul.
 
 **Contraintes techniques (durables)**
 - VRAM 12 Go : appels `/free` automatiques lors des swaps de modèles lourds.
