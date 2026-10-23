@@ -51,12 +51,13 @@ body { overflow: hidden; }
 .topnav-tabs { display: flex; gap: 2px; }
 .topnav-tab {
   border: none; background: transparent; color: var(--muted);
-  font: inherit; font-size: 13px; padding: 7px 14px; border-radius: var(--r-full);
-  cursor: pointer; transition: .14s; display: flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13px; padding: 8px 16px; border-radius: var(--r-full, 999px);
+  cursor: pointer; transition: .18s; display: flex; align-items: center; gap: 6px;
+  font-weight: 500;
 }
 .topnav-tab:hover { color: var(--text); background: var(--surface-2); }
-.topnav-tab.active { background: var(--primary-soft); color: #fff; }
-.topnav-tab span { font-size: 14px; }
+.topnav-tab.active { background: var(--primary, #7c5cff); color: #fff; box-shadow: 0 4px 16px rgba(124,92,255,0.3); }
+.topnav-tab span { font-size: 15px; }
 
 .topnav-spacer { flex: 1; }
 .topnav-actions { display: flex; align-items: center; gap: 10px; }
