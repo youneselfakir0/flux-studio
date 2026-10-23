@@ -1,0 +1,63 @@
+# Flux Studio v2 — CI
+#
+# Portee volontairement limitee. Ce repo est une application locale Windows :
+# ComfyUI sur 127.0.0.1:8188, GPU NVIDIA, secrets .env, chemins F:\f\ComfyUI.
+# Elle ne peut pas demarrer sur un runner GitHub heberge (ubuntu-latest).
+# Seule la validite syntaxique du code est verifiable ici.
+#
+# Ce workflow ne lance aucun test (le repo n'en contient pas encore) et ne
+# publie aucun paquet.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  syntax:
+    name: Syntaxe Python + JS
+    # Image figee : ubuntu-latest a bascule vers Ubuntu 26 le 2026-10-19.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compiler Python (app/ + scraper/)
+        run: python -m compileall -q app scraper
+
+      - name: Installer Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Verifier la syntaxe JS (modules ES)
+        run: |
+          set -uo pipefail
+          find app/static scraper -name '*.js' -type f | sort > /tmp/js-files.txt
+          echo "Fichiers JS a verifier : $(wc -l < /tmp/js-files.txt)"
+          fail=0
+          while IFS= read -r f; do
+            if node --check "$f"; then
+              echo "  ok   $f"
+            else
+              echo "::error file=$f::Erreur de syntaxe JS"
+              fail=1
+            fi
+          done < /tmp/js-files.txt
+          exit $fail
