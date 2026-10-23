@@ -1,0 +1,6 @@
+{
+  "name": "flux-studio",
+  "private": true,
+  "type": "module",
+  "description": "Marqueur CI : app/static et scraper sont des modules ES natifs. Aucun build, aucune dependance npm."
+}
