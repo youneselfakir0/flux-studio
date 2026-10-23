@@ -856,6 +856,9 @@ async function boot() {
   mountLoraPalette();
   mountLoraInventory();
   initLoraPalette();
+  // Charge l'index LoRA au boot (même hors Mode Workflow) pour que le
+  // sélecteur LoRA du Mode App soit peuplé.
+  LoraIndex.load().then(() => { if (typeof populateAppLoras === 'function') populateAppLoras(); });
 
   // Template par défaut : SDXL (pipeline validé sur cette machine)
   try { getTemplate('sdxl-txt2img')?.build(); canvas.rebuildNodes(); } catch (e) { console.warn('[template]', e); }
