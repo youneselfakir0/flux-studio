@@ -28,7 +28,7 @@ export async function primeCacheNode() {
   if (_cacheNodePromise) return _cacheNodePromise;
   _cacheNodePromise = (async () => {
     try {
-      const r = await fetch('http://127.0.0.1:8188/object_info');
+      const r = await fetch('/api/comfyui/nodeinfo');
       const j = await r.json();
       _cacheNodeAvailable = !!j['FluxStudioCachedConditioning'];
       console.log('[builder] cache node:', _cacheNodeAvailable);

@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/v2/editor.css">
+<link rel="stylesheet" href="/v2/prompts/prompt_tab.css">
 <link rel="stylesheet" href="/v2/vision.css"><link rel="stylesheet" href="/loras/palette.css">
 </head>
 <body class="safe">
@@ -19,13 +20,13 @@
   <nav class="topnav">
     <div class="topnav-brand">
       <div class="brand-mark"></div>
-      <span class="brand-name">Flux Studio <small>v2</small></span>
+      <span class="brand-name">Flux Studio</span>
     </div>
 
     <div class="topnav-tabs">
-      <button class="topnav-tab active" data-view="app"><span>◉</span> App</button>
-      <button class="topnav-tab" data-view="gallery"><span>▦</span> Gallery</button>
-      <button class="topnav-tab" data-view="models"><span>◫</span> Models</button>
+      <button class="topnav-tab active" data-view="app"><span>◉</span> Créer</button>
+      <button class="topnav-tab" data-view="gallery"><span>▦</span> Galerie</button>
+      <button class="topnav-tab" data-view="models"><span>◫</span> Modèles</button>
       <button class="topnav-tab" data-view="prompts"><span>✦</span> Prompts</button>
       <button class="topnav-tab" data-view="canvas2d"><span>✎</span> Canvas</button>
       <button class="topnav-tab" data-view="comfyui"><span>❖</span> ComfyUI</button>
@@ -47,17 +48,11 @@
         <span>Safe</span>
       </label>
       <span class="badge" id="statBadge">—</span>
-      <div class="segmented" id="speedSeg" title="Vitesse de génération">
-        <button data-speed="fast">Rapide</button>
-        <button data-speed="balanced" class="on">Équilibré</button>
-        <button data-speed="quality">Qualité</button>
-      </div>
-      <button class="btn sm" id="advancedModeToggle" title="Afficher le canvas nodal (mode avance)">Mode avance</button>
-      <button class="btn sm" id="validateGraphBtn" title="Valider le graphe sans le faire tourner (ne pollue pas la file ComfyUI)">✓ Valider</button>
-      <button class="btn sm" id="warmupBtn" title="Pré-charge le modèle choisi dans la VRAM (accélère la 1re génération)">🔥 Pré-charge</button>
-      <button class="btn sm" id="recentPromptsBtn" title="Prompts récents">↺ Récents</button>
-      <button class="btn sm" id="autoLoraBtn" title="Suggérer des LoRA selon le prompt actuel">✨ Auto-LoRA</button>
-      <button class="btn sm" id="freeMemoryBtn" title="Libérer la mémoire VRAM/RAM ComfyUI">🧹 Libérer</button>
+      <span class="badge" id="vramIndicator" title="VRAM utilisée">⚡ 0.0/12.0 Go</span>
+      <button class="btn sm ghost" id="recentPromptsBtn" title="Prompts récents">↺ Récents</button>
+      <button class="btn sm ghost" id="autoLoraBtn" title="Suggérer des LoRA selon le prompt actuel">✨ Auto-LoRA</button>
+      <button class="btn sm ghost" id="freeMemoryBtn" title="Libérer la mémoire VRAM/RAM ComfyUI">🧹 Libérer</button>
+      <button class="btn sm ghost" id="settingsBtn" title="Préférences">⚙</button>
       <button class="btn primary sm" id="executeGraphBtn" title="Execute workflow (Ctrl+Enter)">▶ Run</button>
     </div>
   </nav>
@@ -70,56 +65,61 @@
     <section id="view-app" class="view active">
       <div class="view-content app-layout">
         <div class="app-card">
-          <h1>Génération simple</h1>
-          <p class="app-sub">Pas de nœuds, pas de câblage. Choisis un modèle, décris, génère.</p>
+          <div class="app-header">
+            <h1>Créer</h1>
+            <p class="app-sub">Décris ton image, choisis un modèle, génère.</p>
+          </div>
 
-          <label>Modèle</label>
-          <select id="appModel">
-            <option value="sdxl-base">SDXL — Base (recommandé)</option>
-            <option value="sdxl-turbo">SDXL — Turbo (rapide, 4 étapes)</option>
-            <option value="flux2-klein">FLUX.2 Klein (4B, rapide)</option>
-            <option value="flux1-dev">FLUX.1 Dev (qualité, lent)</option>
-            <option value="sd15-base">SD 1.5 (léger)</option>
-          </select>
+          <div class="app-field-group">
+            <label>Modèle</label>
+            <select id="appModel">
+              <option value="sdxl-base">SDXL — Base (recommandé)</option>
+              <option value="sdxl-turbo">SDXL — Turbo (rapide, 4 étapes)</option>
+              <option value="flux2-klein">FLUX.2 Klein (4B, rapide)</option>
+              <option value="flux1-dev">FLUX.1 Dev (qualité, lent)</option>
+              <option value="sd15-base">SD 1.5 (léger)</option>
+            </select>
+          </div>
 
-          <label>Prompt (positif)</label>
-          <textarea id="appPrompt" rows="3" placeholder="a beautiful woman, portrait, soft light, 8k"></textarea>
+          <div class="app-field-group">
+            <label>Prompt</label>
+            <textarea id="appPrompt" rows="4" placeholder="a beautiful woman, portrait, soft light, 8k, detailed"></textarea>
+          </div>
 
-          <label>Prompt (négatif)</label>
-          <textarea id="appNeg" rows="2" placeholder="blurry, bad anatomy, watermark"></textarea>
+          <div class="app-field-group">
+            <label>Prompt négatif</label>
+            <textarea id="appNeg" rows="2" placeholder="blurry, bad anatomy, watermark, deformed"></textarea>
+          </div>
 
-          <div class="app-row">
-            <div class="app-field">
+          <div class="app-params">
+            <div class="app-param">
               <label>Largeur</label>
               <select id="appW"><option>512</option><option selected>768</option><option>1024</option></select>
             </div>
-            <div class="app-field">
+            <div class="app-param">
               <label>Hauteur</label>
               <select id="appH"><option>512</option><option selected>768</option><option>1024</option></select>
             </div>
-            <div class="app-field">
+            <div class="app-param">
               <label>Steps</label>
               <input type="number" id="appSteps" value="24" min="1" max="60">
             </div>
-            <div class="app-field">
+            <div class="app-param">
               <label>CFG</label>
               <input type="number" id="appCfg" value="7" min="1" max="20" step="0.5">
             </div>
-          </div>
-
-          <div class="app-row">
-            <div class="app-field" style="flex:2">
-              <label>Seed (laisser vide = aléatoire)</label>
+            <div class="app-param">
+              <label>Seed</label>
               <input type="number" id="appSeed" placeholder="aléatoire">
             </div>
-            <div class="app-field">
+            <div class="app-param">
               <label>LoRA</label>
               <select id="appLora"><option value="">Aucun</option></select>
             </div>
           </div>
 
           <div class="app-actions">
-            <button class="btn primary" id="appGenerate">▶ Générer</button>
+            <button class="btn primary lg" id="appGenerate">▶ Générer</button>
             <button class="btn ghost" id="appDescribe">🖼 Depuis une image</button>
           </div>
 
@@ -165,27 +165,25 @@
             <span>⌕</span>
             <input id="railSearch" placeholder="Rechercher…">
           </label>
-          <div class="nav-label">Bases</div>
+          <div class="nav-label">Modèles indexés</div>
           <div class="base-chips" id="baseList"></div>
-          <div class="nav-label">Tags populaires</div>
+          <div class="nav-label">Index</div>
           <div class="tag-cloud" id="tagCloud"></div>
         </aside>
         <div class="prompts-main">
           <div class="view-head">
             <div>
               <h1>Explorateur de prompts</h1>
-              <p>Prompts Civitai réels · femmes uniquement · NSFW jusqu'à X (XXX exclu).</p>
+              <p id="promptsSub">Chargement de l'index…</p>
             </div>
             <div class="spacer"></div>
           </div>
           <div class="filters">
-            <select id="fBase"><option value="">Toutes les bases</option></select>
-            <select id="fType"><option value="">Tous types</option></select>
-            <select id="fTag"><option value="">Tous tags</option></select>
+            <select id="fBase"><option value="">Tous les modèles</option></select>
             <span class="sep"></span>
-            <span class="chip on" data-men="only">♀ Femmes seulement</span>
-            <span class="chip" data-men="0">✕ Sans hommes</span>
-            <span class="chip" data-men="">Tout</span>
+            <span class="chip on" data-sort="uses">Plus utilisés</span>
+            <span class="chip" data-sort="recent">Récents</span>
+            <span class="chip" data-sort="longest">Plus longs</span>
           </div>
           <div id="promptGrid" class="grid"></div>
           <div id="promptMore" class="center mt"></div>
@@ -371,6 +369,57 @@
   </div>
 </div>
 
-<script type="module" src="/v2/main.js?v=2"></script>
+<!-- ===================== PREFERENCES MODAL ===================== -->
+<div class="gen-modal" id="prefsModal" style="display:none" role="dialog" aria-modal="true" aria-label="Préférences">
+  <div class="gen-box" style="max-width:520px">
+    <h3>⚙ Préférences</h3>
+    <div class="field">
+      <label>Dossier de sortie</label>
+      <input type="text" id="prefOutDir" value="F:\f\ComfyUI\output\flux-studio" style="width:100%">
+    </div>
+    <div class="field">
+      <label>Checkpoint par défaut</label>
+      <select id="prefCkpt"><option>Flux.2 Klein</option><option>Flux.1 D</option><option>SDXL</option></select>
+    </div>
+    <div class="field">
+      <label>Ratio par défaut</label>
+      <div id="prefRatio" style="display:flex;gap:6px">
+        <button class="btn sm" data-ratio="1:1">1:1</button>
+        <button class="btn sm" data-ratio="9:16">9:16</button>
+        <button class="btn sm" data-ratio="16:9">16:9</button>
+        <button class="btn sm" data-ratio="3:2">3:2</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Steps / CFG par défaut</label>
+      <div style="display:flex;gap:12px">
+        <label style="flex:1">Steps <input type="number" id="prefSteps" value="24" min="1" max="60" style="width:100%"></label>
+        <label style="flex:1">CFG <input type="number" id="prefCfg" value="7" min="1" max="20" step="0.5" style="width:100%"></label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Niveau NSFW max</label>
+      <div id="prefNsfw" style="display:flex;gap:6px">
+        <button class="btn sm" data-nsfw="1">Safe</button>
+        <button class="btn sm" data-nsfw="2">Soft</button>
+        <button class="btn sm" data-nsfw="3">Mature</button>
+        <button class="btn sm" data-nsfw="4">X</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Thème</label>
+      <div id="prefTheme" style="display:flex;gap:6px">
+        <button class="btn sm" data-theme="dark">Dark</button>
+        <button class="btn sm" data-theme="light">Light</button>
+      </div>
+    </div>
+    <div class="gen-actions">
+      <button class="btn ghost" id="prefsCancel">Annuler</button>
+      <button class="btn primary" id="prefsSave">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/v2/main.js?v=3"></script>
 </body>
 </html>

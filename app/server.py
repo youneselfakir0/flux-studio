@@ -20,13 +20,108 @@ import hashlib
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "data", "flux_studio.db")
-THUMB_CACHE_DIR = os.path.join(BASE_DIR, "data", "thumb_cache")
-PORT = 8080
+# Configuration centralisee
+from config import (BASE_DIR, DB_PATH, THUMB_CACHE_DIR, PORT, STATIC_DIR,
+                    COMFYUI_ROOT, MAX_CONCURRENT_GENERATE,
+                    MAX_CONCURRENT_DOWNLOADS, MAX_CONCURRENT_VISION,
+                    MAX_CONCURRENT_PROXY, MAX_CONCURRENT_SCAN,
+                    MAX_CONCURRENT_CONNECTIONS)
+MODELS_DIR = os.path.join(COMFYUI_ROOT, "models")
+WORKFLOWS_DIR = os.path.join(COMFYUI_ROOT, "user", "default", "workflows")
 ALLOWED_HOSTS = {"127.0.0.1", "localhost", "127.0.0.1:8080", "localhost:8080"}
 ALLOWED_ORIGINS = {"http://127.0.0.1:8080", "http://localhost:8080"}
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+
+# ---------- Plafonds de concurrence ----------
+# Semaphores non bloquants : une requete lourde en trop recoit un 429 immediat
+# au lieu de creer un thread supplementaire. Les operations legeres ne sont
+# jamais limitees.
+_sema_generate = threading.BoundedSemaphore(MAX_CONCURRENT_GENERATE)
+_sema_download = threading.BoundedSemaphore(MAX_CONCURRENT_DOWNLOADS)
+_sema_vision = threading.BoundedSemaphore(MAX_CONCURRENT_VISION)
+_sema_proxy = threading.BoundedSemaphore(MAX_CONCURRENT_PROXY)
+_sema_scan = threading.BoundedSemaphore(MAX_CONCURRENT_SCAN)
+_sema_connections = threading.BoundedSemaphore(MAX_CONCURRENT_CONNECTIONS)
+
+
+def _try_slot(sema):
+    """Acquiert un slot sans bloquer. Retourne False si le plafond est atteint."""
+    return sema.acquire(blocking=False)
+
+
+def _release_slot(sema):
+    """Libere un slot, sans jamais lever si le semaphore est deja relache."""
+    try:
+        sema.release()
+    except ValueError:
+        pass
+
+
+def _slot_for_route(method, path):
+    """Retourne le semaphore categorie pour une route lourde, sinon None."""
+    if method == "POST":
+        if path in ("/api/comfyui/generate", "/api/comfyui/run",
+                    "/api/comfyui/validate"):
+            return _sema_generate
+        if path in ("/api/comfyui/describe", "/api/comfyui/enhance-prompt",
+                    "/api/comfyui/upload-image"):
+            return _sema_vision
+        if path == "/api/comfyui/save_workflow":
+            return _sema_scan
+    elif method == "GET":
+        if path == "/api/proxy":
+            return _sema_proxy
+        if path in ("/api/comfyui/scan-files", "/api/comfyui/local"):
+            return _sema_scan
+    return None
+
+
+def log_internal(context, exc=None):
+    """Journalise un detail technique cote serveur, sans secret ni chemin public.
+
+    Les messages clients restent generiques ; ce journal est le seul endroit ou
+    l'exception brute est conservee, apres redaction des jetons connus.
+    """
+    try:
+        detail = str(exc) if exc is not None else ""
+        for name in ("CIVITAI_TOKEN", "GEMINI_API_KEY"):
+            secret = globals().get(name) or ""
+            if secret:
+                detail = detail.replace(secret, "***")
+        detail = detail.replace("\r", " ").replace("\n", " ")[:400]
+        print(f"[flux-studio] {context}: {detail}", file=sys.stderr, flush=True)
+    except Exception:
+        pass
+
+
+def error_payload(code, message):
+    """Charge d'erreur stable : code lisible par le client, message utile."""
+    return {"error": message, "code": code}
+
+
+def is_within(path, root):
+    """Verifie qu'un chemin reste dans une racine (anti-traversment)."""
+    try:
+        return os.path.commonpath([os.path.abspath(path), os.path.abspath(root)]) == os.path.abspath(root)
+    except (ValueError, OSError):
+        return False
+
+
+def safe_download_filename(raw_name, version_id):
+    """Reduit un nom fourni par une source distante a un nom de fichier simple.
+
+    SEC-04 : un nom comme `..\\..\\evil.safetensors` ou `/etc/passwd` ne doit
+    jamais permettre d'ecrire hors du dossier de destination. On ne conserve
+    que le dernier composant, on retire les separateurs restants et on refuser
+    les noms vides ou speciaux.
+    """
+    filename = os.path.basename(str(raw_name).replace("\\", "/")).strip()
+    filename = filename.replace("/", "").replace("\\", "")
+    if (not filename or filename in (".", "..")
+            or filename in (os.path.sep, os.path.altsep)
+            or re.search(r'[<>:"|?*\x00-\x1f]', filename)):
+        return f"model_{version_id}.safetensors"
+    return filename
 
 
 def cache_path_for(url):
@@ -35,9 +130,6 @@ def cache_path_for(url):
     return os.path.join(THUMB_CACHE_DIR, h[:2], h)
 
 # ---------- ComfyUI ----------
-COMFYUI_ROOT = r"F:\f\ComfyUI"
-MODELS_DIR = os.path.join(COMFYUI_ROOT, "models")
-WORKFLOWS_DIR = os.path.join(COMFYUI_ROOT, "user", "default", "workflows")
 CIVITAI_TOKEN = os.environ.get("CIVITAI_TOKEN", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
@@ -125,7 +217,9 @@ def gpu_info():
             info["vram_mb"] = int(parts[1].split()[0]) if len(parts) > 1 and parts[1].split() else 0
             info["driver"] = parts[2] if len(parts) > 2 else ""
     except Exception as e:
-        info["error"] = str(e)
+        log_internal("gpu-probe", e)
+        info["error"] = "nvidia-smi indisponible"
+        info["code"] = "gpu_unavailable"
     vram = info["vram_mb"]
     if vram >= 24000:
         info["max_gb"] = 22
@@ -461,6 +555,10 @@ def _progress(did, **kw):
 
 
 def start_download(model_id, version_id, file_id=None):
+    # Plafond explicite : refuse une tache de plus plutot que creer un thread
+    # illimite. Le slot est libere par _do_download dans son finally.
+    if not _try_slot(_sema_download):
+        return None
     did = uuid.uuid4().hex[:12]
     rec = {
         "id": did, "civitai_model_id": model_id, "civitai_version_id": version_id,
@@ -470,8 +568,14 @@ def start_download(model_id, version_id, file_id=None):
     }
     with _dl_lock:
         _downloads[did] = rec
-    t = threading.Thread(target=_do_download, args=(did, model_id, version_id, file_id), daemon=True)
-    t.start()
+    try:
+        t = threading.Thread(target=_do_download, args=(did, model_id, version_id, file_id), daemon=True)
+        t.start()
+    except Exception:
+        _release_slot(_sema_download)
+        with _dl_lock:
+            _downloads.pop(did, None)
+        raise
     return did
 
 
@@ -498,13 +602,19 @@ def _do_download(did, model_id, version_id, file_id):
 
         ctype = model.get("type", "Checkpoint")
         dest_folder = CIVITAI_TO_COMFYUI.get(ctype, "checkpoints")
-        filename = f.get("name") or f"model_{version_id}.safetensors"
+        raw_name = f.get("name") or f"model_{version_id}.safetensors"
+        # SEC-04 : ne conserver qu'un nom de fichier simple, sans chemin
+        filename = safe_download_filename(raw_name, version_id)
         if dest_folder == "workflows":
             dest_dir = WORKFLOWS_DIR
         else:
             dest_dir = os.path.join(MODELS_DIR, dest_folder)
         os.makedirs(dest_dir, exist_ok=True)
         dest_path = os.path.join(dest_dir, filename)
+        # Confinement reel
+        if not is_within(dest_path, dest_dir):
+            _progress(did, status="error", error="nom de fichier invalide")
+            return
 
         url = f.get("downloadUrl") or f"https://civitai.com/api/download/models/{version_id}?fileId={f.get('id')}"
         _progress(did, name=f"{model.get('name')} / {version.get('name')}",
@@ -545,7 +655,11 @@ def _do_download(did, model_id, version_id, file_id):
         _progress(did, status="completed", completed_at=time.time())
         scan_comfyui_models(force=True)
     except Exception as e:
-        _progress(did, status="error", error=str(e))
+        log_internal("download", e)
+        _progress(did, status="error", error="échec du téléchargement",
+                  code="download_failed")
+    finally:
+        _release_slot(_sema_download)
 
 
 # ---------- Image metadata extraction ----------
@@ -703,7 +817,9 @@ def try_ollama_vision(image_path, prompt="Describe this image in detail."):
         resp = json.loads(urllib.request.urlopen(req, timeout=180).read())
         return {"available": True, "model": vision[0], "description": resp.get("response", "")}
     except Exception as e:
-        return {"available": False, "error": str(e)}
+        log_internal("vision-ollama", e)
+        return {"available": False, "error": "service de vision local indisponible",
+                "code": "vision_unavailable"}
 
 
 def try_gemini_vision(image_path, prompt="Describe this image in detail."):
@@ -727,7 +843,9 @@ def try_gemini_vision(image_path, prompt="Describe this image in detail."):
         text = resp["candidates"][0]["content"]["parts"][0]["text"]
         return {"available": True, "model": GEMINI_MODEL, "description": text}
     except Exception as e:
-        return {"available": False, "error": str(e)}
+        log_internal("vision-gemini", e)
+        return {"available": False, "error": "service de vision Gemini indisponible",
+                "code": "vision_unavailable"}
 
 
 def describe_with_vision(image_path, prompt="Describe this image in detail."):
@@ -979,7 +1097,8 @@ def enhance_prompt(system_prompt, user_prompt):
         except json.JSONDecodeError:
             return {"positive": text, "negative": ""}
     except Exception as e:
-        return {"error": str(e)}
+        log_internal("enhance-prompt", e)
+        return error_payload("enhance_failed", "génération de prompt indisponible")
 
 
 # ---------- Safetensors header reading ----------
@@ -1003,7 +1122,8 @@ def read_safetensors_header(filepath):
         tensors = [k for k in header.keys() if k != "__metadata__"]
         return {"metadata": metadata, "tensors": tensors[:200], "tensor_count": len(tensors)}
     except Exception as e:
-        return {"error": str(e)}
+        log_internal("read-safetensors-header", e)
+        return error_payload("header_read_failed", "lecture du header impossible")
 
 
 # ---------- File listing pour scanner frontend ----------
@@ -1069,10 +1189,17 @@ def _comfy_post_prompt(prompt_dict, force_validate=False):
                 msgs.append(f"nœud {nid} ({info.get('class_type', '?')})"
                             + (f" · champ « {field} »" if field else "")
                             + f" : {err.get('message', '')}")
-        return {"ok": False, "error": detail.get("error", {}).get("message", str(e)),
+        err_obj = detail.get("error") if isinstance(detail, dict) else None
+        if isinstance(err_obj, dict):
+            err_msg = err_obj.get("message") or "validation ComfyUI refusée"
+        else:
+            err_msg = "validation ComfyUI refusée"
+        return {"ok": False, "error": err_msg, "code": "workflow_invalid",
                 "node_errors": node_errors, "messages": msgs}
     except Exception as e:
-        return {"ok": False, "error": f"ComfyUI injoignable : {e}"}
+        log_internal("comfyui-post-prompt", e)
+        return {"ok": False, "error": "ComfyUI injoignable",
+                "code": "comfyui_unreachable"}
 
 
 def comfy_run(prompt_dict):
@@ -1114,14 +1241,9 @@ def _drop_prompt(prompt_id, wait_empty=True):
         urllib.request.urlopen(req, timeout=5).read()
     except Exception:
         pass
-    # 2. Il est probablement deja en cours -> on interrompt
-    try:
-        req = urllib.request.Request(f"{COMFYUI_URL}/interrupt", data=b"{}",
-                                     headers={"Content-Type": "application/json"},
-                                     method="POST")
-        urllib.request.urlopen(req, timeout=5).read()
-    except Exception:
-        pass
+    # 2. NE PAS interrompre globalement : cela pourrait stopper une generation utilisateur.
+    # On se contente de retirer le prompt de la file. S'il est deja en cours, on laisse
+    # ComfyUI terminer et on ne bloque pas l'appelant.
     if not wait_empty:
         return False
     # 3. Attendre que la file soit vide (max 5 s)
@@ -1198,19 +1320,48 @@ def _run_warmup(prompt):
                     pass
                 return
             time.sleep(1.0)
-    except Exception:
-        pass
+    except Exception as e:
+        log_internal("warmup", e)
+    finally:
+        _release_slot(_sema_generate)
 
 
 def comfy_history(prompt_id):
-    """Etat d'une execution : pending / done / error + images produites."""
+    """Etat d'une execution : queued / running / succeeded / failed / unknown.
+
+    Conserve les anciens alias (pending/done/error) pour compatibilite.
+    """
+    # Si ComfyUI est injoignable, on ne fait pas semblant que le job est en attente.
     try:
         data = _comfy_get(f"/history/{urllib.parse.quote(prompt_id)}", timeout=20)
     except Exception as e:
-        return {"status": "error", "error": f"ComfyUI injoignable : {e}"}
+        log_internal("comfyui-history", e)
+        return {"status": "unknown", "error": "ComfyUI injoignable",
+                "code": "comfyui_unreachable", "alias": "error"}
     entry = data.get(prompt_id)
     if not entry:
-        return {"status": "pending"}
+        # Pas encore dans l'historique : inspecter la file pour distinguer queued/running.
+        try:
+            q = _comfy_get("/queue", timeout=10)
+            running_ids = []
+            for item in (q.get("queue_running") or []):
+                try:
+                    running_ids.append(item[1])
+                except (TypeError, IndexError):
+                    pass
+            pending_ids = []
+            for item in (q.get("queue_pending") or []):
+                try:
+                    pending_ids.append(item[1])
+                except (TypeError, IndexError):
+                    pass
+            if prompt_id in running_ids:
+                return {"status": "running", "images": []}
+            if prompt_id in pending_ids:
+                return {"status": "queued", "images": []}
+        except Exception:
+            pass
+        return {"status": "pending", "images": []}
     st = entry.get("status") or {}
     imgs = []
     for nid, out in (entry.get("outputs") or {}).items():
@@ -1226,10 +1377,73 @@ def comfy_history(prompt_id):
             err_msg = d.get("exception_message") or "erreur d'execution"
             err_node = f"{d.get('node_type', '?')}#{d.get('node_id', '?')}"
     if st.get("status_str") == "error":
-        return {"status": "error", "error": err_msg, "node": err_node, "images": imgs}
-    if st.get("completed"):
-        return {"status": "done", "images": imgs}
-    return {"status": "pending", "images": imgs}
+        return {"status": "failed", "alias": "error", "error": err_msg,
+                "node": err_node, "images": imgs}
+    if st.get("completed") or st.get("status_str") == "success":
+        return {"status": "succeeded", "alias": "done", "images": imgs}
+    return {"status": "running", "alias": "pending", "images": imgs}
+
+
+def comfy_vram():
+    """VRAM utilisee/totale via ComfyUI /system_stats, repli nvidia-smi.
+
+    On selectionne le GPU effectivement utilise par ComfyUI (et non le premier
+    de la liste) et on refuse de renvoyer des donnees partielles : si la
+    memoire libre est inconnue, l'indicateur remonte 'indisponible' plutot que
+    de faire croire que tout le GPU est utilise.
+    """
+    total = None
+    free = None
+    dev_index = 0
+    try:
+        st = _comfy_get("/system_stats", timeout=5)
+        devices = st.get("devices") or []
+        # GPU utilise = celui qui expose de la VRAM (le plus gros si plusieurs)
+        dev = None
+        for d in devices:
+            if d.get("vram_total") is not None:
+                if dev is None or (d.get("vram_total") or 0) > (dev.get("vram_total") or 0):
+                    dev = d
+        if dev is not None:
+            total = dev.get("vram_total")
+            free = dev.get("vram_free")
+            try:
+                dev_index = int(dev.get("index", 0))
+            except (TypeError, ValueError):
+                dev_index = 0
+    except Exception:
+        pass
+    if total is None or free is None:
+        try:
+            import subprocess
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+                timeout=5, stderr=subprocess.DEVNULL).decode("utf-8", "replace").strip().splitlines()
+            if out and dev_index < len(out):
+                used_s, total_s = out[dev_index].split(",")
+            elif out:
+                used_s, total_s = out[0].split(",")
+            else:
+                used_s = total_s = None
+            if used_s is not None and total_s is not None:
+                used_mb = float(used_s.strip())
+                total_mb = float(total_s.strip())
+                total = int(total_mb * 1024 * 1024)
+                free = int((total_mb - used_mb) * 1024 * 1024)
+        except Exception:
+            pass
+    if total is None or free is None:
+        return {"ok": False, "error": "VRAM indisponible"}
+    used = total - free
+    return {
+        "ok": True,
+        "vram_total": total,
+        "vram_free": free,
+        "vram_used": used,
+        "vram_total_gb": round(total / (1024 ** 3), 2),
+        "vram_used_gb": round(used / (1024 ** 3), 2),
+        "vram_free_gb": round(free / (1024 ** 3), 2),
+    }
 
 
 def comfy_queue():
@@ -1242,7 +1456,9 @@ def comfy_queue():
     try:
         q = _comfy_get("/queue", timeout=10)
     except Exception as e:
-        return {"error": f"ComfyUI injoignable : {e}", "queue_running": [], "queue_pending": []}
+        log_internal("comfyui-queue", e)
+        return {"error": "ComfyUI injoignable", "code": "comfyui_unreachable",
+                "queue_running": [], "queue_pending": []}
     running = q.get("queue_running") or []
     pending = q.get("queue_pending") or []
     # Numero de prompt en cours d'execution, si identifiable
@@ -1277,7 +1493,9 @@ def comfy_free(unload_models=True, free_memory=True):
                                      headers={"Content-Type": "application/json"}, method="POST")
         urllib.request.urlopen(req, timeout=15).read()
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        log_internal("comfyui-free", e)
+        return {"ok": False, "error": "libération VRAM impossible",
+                "code": "comfyui_unreachable"}
     try:
         st = _comfy_get("/system_stats", timeout=10)
         dev = (st.get("devices") or [{}])[0]
@@ -1299,7 +1517,9 @@ def comfy_interrupt():
         urllib.request.urlopen(req, timeout=5).read()
         return {"ok": True, "interrupted": True}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        log_internal("comfyui-interrupt", e)
+        return {"ok": False, "error": "interruption impossible",
+                "code": "comfyui_unreachable"}
 
 
 def comfy_models_list():
@@ -1388,7 +1608,8 @@ def comfy_node_info():
     try:
         oi = _comfy_get("/object_info", timeout=60)
     except Exception as e:
-        return {"error": f"ComfyUI injoignable : {e}"}
+        log_internal("comfyui-object-info", e)
+        return {"error": "ComfyUI injoignable", "code": "comfyui_unreachable"}
     out = {}
     for name, d in oi.items():
         inp = d.get("input") or {}
@@ -1425,6 +1646,39 @@ def load_lora_index():
     return _LORA_INDEX_CACHE["data"] or {"count": 0, "stats": {}, "items": []}
 
 
+_MODEL_EXTS = (".safetensors", ".ckpt", ".pt", ".pth", ".gguf", ".bin")
+
+
+def _pick_installed_model(subfolders, patterns):
+    """Retourne le premier fichier installe correspondant a l'un des motifs.
+
+    `subfolders` peut etre une chaine ou une liste de sous-dossiers de MODELS_DIR.
+    Ne considere que les extensions de modeles connues et prefere les .safetensors.
+    """
+    if isinstance(subfolders, str):
+        subfolders = [subfolders]
+    pats = [p.lower() for p in patterns]
+    candidates = []
+    for sf in subfolders:
+        folder = os.path.join(MODELS_DIR, sf)
+        if not os.path.isdir(folder):
+            continue
+        for root, _dirs, files in os.walk(folder):
+            for fn in files:
+                low = fn.lower()
+                if not low.endswith(_MODEL_EXTS):
+                    continue
+                if not any(p in low for p in pats):
+                    continue
+                candidates.append(fn)
+    if not candidates:
+        return None
+    safetensors = [c for c in candidates if c.lower().endswith(".safetensors")]
+    pool = safetensors if safetensors else candidates
+    pool.sort()
+    return pool[0]
+
+
 # ---------- Workflow builders ----------
 def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, scheduler, seed, vae, clip):
     """Construit un workflow ComfyUI selon le modèle choisi."""
@@ -1432,72 +1686,67 @@ def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, s
     
     # Defaults par modèle
     if model == "Flux.2 Klein 4B":
-        ckpt = "flux2_klein_4b.safetensors"
-        vae_name = vae if vae != "auto" else "ae.safetensors"
-        clip1 = "t5xxl_fp8_e4m3fn.safetensors"
-        clip2 = "clip_l.safetensors"
-        loader = "DualCLIPLoader"
-        latent = "EmptyFlux2LatentImage"
-        guider = "BasicGuider"
-        sampler_node = "KSampler"
+        unet_name = _pick_installed_model(["diffusion_models", "unet", "checkpoints"], ["klein"]) or "flux-2-klein-4b.safetensors"
+        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["flux2-vae", "flux2"]) or "flux2-vae.safetensors")
+        clip_name = _pick_installed_model(["text_encoders", "clip"], ["qwen_3_4b"]) or "qwen_3_4b.safetensors"
         return {
-            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 1]}},
-            "4": {"class_type": loader, "inputs": {"clip_name1": clip1, "clip_name2": clip2}},
-            "5": {"class_type": sampler_node, "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
-            "6": {"class_type": latent, "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
-            "8": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
-            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["7", 0]}},
+            "1": {"class_type": "UNETLoader", "inputs": {"unet_name": unet_name, "weight_dtype": "default"}},
+            "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": clip_name, "type": "flux2"}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
+            "4": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["2", 0]}},
+            "5": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
+            "7": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": sampler if sampler in ("euler",) else "euler"}},
+            "8": {"class_type": "Flux2Scheduler", "inputs": {"steps": steps, "width": width, "height": height}},
+            "9": {"class_type": "CFGGuider", "inputs": {"model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0], "cfg": cfg}},
+            "10": {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["6", 0], "guider": ["9", 0], "sampler": ["7", 0], "sigmas": ["8", 0], "latent_image": ["5", 0]}},
+            "11": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
+            "12": {"class_type": "VAEDecode", "inputs": {"samples": ["10", 0], "vae": ["11", 0]}},
+            "13": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["12", 0]}},
         }
     
     elif model == "Flux.1 D":
-        ckpt = "flux1-dev.safetensors"
-        vae_name = vae if vae != "auto" else "ae.safetensors"
-        clip1 = "t5xxl_fp8_e4m3fn.safetensors"
-        clip2 = "clip_l.safetensors"
+        unet_name = _pick_installed_model(["diffusion_models", "unet", "checkpoints"], ["flux1", "flux-1", "flux_1"]) or "flux1-dev-fp8.safetensors"
+        vae_name = vae if vae != "auto" else (_pick_installed_model("vae", ["ae.safetensors", "ae"]) or "ae.safetensors")
+        clip1 = _pick_installed_model(["text_encoders", "clip"], ["t5xxl"]) or "t5xxl_fp8_e4m3fn.safetensors"
+        clip2 = _pick_installed_model(["text_encoders", "clip"], ["clip_l"]) or "clip_l.safetensors"
+        # FLUX.1 Dev est distille : le blueprint ComfyUI utilise cfg=1.0.
+        # Appliquer le CFG de l'UI (3.5 par defaut) rend l'image molle.
         return {
-            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 1]}},
-            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": clip1, "clip_name2": clip2}},
-            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
-            "6": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
-            "8": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
-            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["7", 0]}},
+            "1": {"class_type": "UNETLoader", "inputs": {"unet_name": unet_name, "weight_dtype": "default"}},
+            "2": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": clip1, "clip_name2": clip2, "type": "flux"}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
+            "4": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["2", 0]}},
+            "5": {"class_type": "EmptySD3LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "6": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0], "latent_image": ["5", 0], "seed": seed, "steps": steps, "cfg": 1.0, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
+            "7": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
+            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["7", 0]}},
+            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["8", 0]}},
         }
     
     elif model == "SDXL":
-        ckpt = "juggernautXL_v9.safetensors"
-        vae_name = vae if vae != "auto" else "sdxl_vae.safetensors"
+        ckpt = _pick_installed_model("checkpoints", ["sdxl", "xl"]) or "sd_xl_base_1.0.safetensors"
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 2]}},
-            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": "clip_g.safetensors", "clip_name2": "clip_l.safetensors"}},
-            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
-            "6": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
-            "8": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
-            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["7", 0]}},
+            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["1", 1]}},
+            "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
+            "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
+            "7": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["6", 0]}},
         }
     
     else:
-        # Fallback Flux
-        ckpt = "flux2_klein_4b.safetensors"
-        vae_name = "ae.safetensors"
+        # Fallback SDXL (checkpoint complet, plus fiable qu'un assemblage Flux partiel)
+        ckpt = _pick_installed_model("checkpoints", ["sd_xl", "sdxl", "xl"]) or "sd_xl_base_1.0.safetensors"
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["4", 1]}},
-            "4": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors"}},
-            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler}},
-            "6": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-            "7": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["8", 0]}},
-            "8": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
-            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["7", 0]}},
+            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": neg_prompt, "clip": ["1", 1]}},
+            "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0}},
+            "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
+            "7": {"class_type": "SaveImage", "inputs": {"filename_prefix": "flux_studio", "images": ["6", 0]}},
         }
 
 
@@ -1524,17 +1773,49 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
-    def send_json(self, data, code=200):
+    def send_json(self, data, code=200, cors=False, headers=None):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         try:
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            if cors:
+                self.send_header("Access-Control-Allow-Origin", "*")
+            for key, value in (headers or {}).items():
+                self.send_header(key, value)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
         except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
             pass  # client parti (navigation, onglet ferme) : rien a signaler
+
+    def _overloaded(self):
+        """Refus controle quand un plafond de tache lourde est atteint."""
+        return self.send_json(
+            error_payload("overloaded", "serveur occupé, réessayez dans un instant"),
+            429, headers={"Retry-After": "1"})
+
+    def _acquire_request_slot(self, method, path):
+        """Reserve un slot categorie pour la duree de la requete, sans bloquer."""
+        sema = _slot_for_route(method, path)
+        self._held_slot = None
+        if sema is None:
+            return True
+        if not _try_slot(sema):
+            return False
+        self._held_slot = sema
+        return True
+
+    def _release_request_slot(self):
+        sema = getattr(self, "_held_slot", None)
+        if sema is not None:
+            self._held_slot = None
+            _release_slot(sema)
+
+    def finish(self):
+        try:
+            super().finish()
+        finally:
+            self._release_request_slot()
 
     def _host_allowed(self):
         host = (self.headers.get("Host") or "").strip().lower()
@@ -1563,6 +1844,8 @@ class Handler(SimpleHTTPRequestHandler):
         path, query = parsed.path, parse_qs(parsed.query)
         if self._reject_if_bad_host():
             return
+        if not self._acquire_request_slot("GET", path):
+            return self._overloaded()
         try:
             if path == "/api/models":        return self.send_json(get_models())
             if path == "/api/images":        return self.send_json(get_images(query))
@@ -1594,6 +1877,10 @@ class Handler(SimpleHTTPRequestHandler):
                     query.get("type", ["output"])[0])
             if path == "/api/comfyui/history":
                 return self.send_json(comfy_history(query.get("id", [""])[0]))
+            if path == "/api/comfyui/vram":
+                if not self._origin_allowed():
+                    return self.send_json({"ok": False, "error": "origin non autorise"}, 403, cors=False)
+                return self.send_json(comfy_vram(), cors=False)
             if path == "/api/comfyui/queue":
                 return self.send_json(comfy_queue())
             if path == "/api/comfyui/scan-files":
@@ -1609,7 +1896,8 @@ class Handler(SimpleHTTPRequestHandler):
             if path == "/api/proxy":
                 return self._proxy(query.get("url", [""])[0])
         except Exception as e:
-            return self.send_json({"error": str(e)}, 500)
+            log_internal("http-get", e)
+            return self.send_json(error_payload("internal_error", "erreur interne"), 500)
 
         if path in ("/", "/index.html", "/comfyui"):
             self.path = "/index.html"
@@ -1626,7 +1914,9 @@ class Handler(SimpleHTTPRequestHandler):
             tags = json.loads(urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3).read())
             return {"available": True, "models": [m["name"] for m in tags.get("models", [])]}
         except Exception as e:
-            return {"available": False, "error": str(e)}
+            log_internal("ollama-probe", e)
+            return {"available": False, "error": "Ollama indisponible",
+                    "code": "ollama_unavailable"}
 
     def _lora_preview(self, rel):
         """Sert la vignette d'un LoRA (jpeg/webp/png voisin du .safetensors).
@@ -1638,7 +1928,7 @@ class Handler(SimpleHTTPRequestHandler):
         rel = (rel or "").replace("\\", "/").replace("/", os.sep)
         full = os.path.normpath(os.path.join(loras_dir, rel))
         # Anti-traversement : le chemin resolu doit rester sous loras_dir
-        if not (full == loras_dir or full.startswith(loras_dir + os.sep)):
+        if not is_within(full, loras_dir):
             return self.send_json({"error": "chemin invalide"}, 400)
         stem = os.path.splitext(full)[0]
         for ext in (".jpeg", ".jpg", ".png", ".webp"):
@@ -1670,7 +1960,8 @@ class Handler(SimpleHTTPRequestHandler):
                 data = r.read()
                 ctype = r.headers.get("Content-Type", "image/png")
         except Exception as e:
-            return self.send_json({"error": str(e)}, 502)
+            log_internal("comfyui-image", e)
+            return self.send_json(error_payload("image_unavailable", "image indisponible"), 502)
         try:
             self.send_response(200)
             self.send_header("Content-Type", ctype)
@@ -1682,8 +1973,15 @@ class Handler(SimpleHTTPRequestHandler):
             pass
 
     def _proxy(self, url):
-        if not url.startswith("http"):
+        if not url or not url.startswith("https://"):
             return self.send_json({"error": "url invalide"}, 400)
+        parsed = urllib.parse.urlparse(url)
+        host = (parsed.hostname or "").lower()
+        # Hotes approuves (Civitai et sous-domaines)
+        if not (host == "civitai.com" or host.endswith(".civitai.com")):
+            return self.send_json({"error": "hote non autorise"}, 403)
+        # Taille max de la reponse (25 Mo)
+        MAX_PROXY_BYTES = 25 * 1024 * 1024
 
         cp = cache_path_for(url)
         data = None
@@ -1706,13 +2004,16 @@ class Handler(SimpleHTTPRequestHandler):
                     with urllib.request.urlopen(req, timeout=30) as r:
                         data = r.read()
                         ctype = r.headers.get("Content-Type", "image/jpeg")
+                    if data is not None and len(data) > MAX_PROXY_BYTES:
+                        return self.send_json({"error": "reponse trop volumineuse"}, 413)
                     last_err = None
                     break
                 except Exception as e:
-                    last_err = str(e)
+                    log_internal("proxy-fetch", e)
+                    last_err = "proxy indisponible"
                     time.sleep(0.7 * (attempt + 1))
             if data is None:
-                return self.send_json({"error": last_err}, 502)
+                return self.send_json(error_payload("proxy_failed", last_err or "proxy indisponible"), 502)
             try:
                 os.makedirs(os.path.dirname(cp), exist_ok=True)
                 with open(cp, "wb") as f:
@@ -1740,7 +2041,11 @@ class Handler(SimpleHTTPRequestHandler):
         if not self._origin_allowed():
             self.send_json({"error": "origin non autorise"}, 403)
             return
+        if not self._acquire_request_slot("POST", path):
+            return self._overloaded()
         try:
+            if int(self.headers.get("Content-Length", 0) or 0) > 30 * 1024 * 1024:
+                return self.send_json({"error": "requete trop volumineuse"}, 413)
             if path == "/api/comfyui/interrupt":
                 return self.send_json(comfy_interrupt())
             if path == "/api/comfyui/validate":
@@ -1769,6 +2074,8 @@ class Handler(SimpleHTTPRequestHandler):
                 body = json.loads(self.rfile.read(n) or b"{}")
                 did = start_download(int(body["model_id"]), int(body["version_id"]),
                                      int(body["file_id"]) if body.get("file_id") else None)
+                if did is None:
+                    return self._overloaded()
                 return self.send_json({"download_id": did})
             if path == "/api/comfyui/describe":
                 return self._handle_describe()
@@ -1782,6 +2089,12 @@ class Handler(SimpleHTTPRequestHandler):
                 n = int(self.headers.get("Content-Length", 0))
                 body = json.loads(self.rfile.read(n) or b"{}")
                 filepath = body.get("filepath", "")
+                # Validation : le fichier doit rester dans MODELS_DIR
+                try:
+                    if not filepath or os.path.commonpath([os.path.abspath(filepath), os.path.abspath(MODELS_DIR)]) != os.path.abspath(MODELS_DIR):
+                        return self.send_json({"error": "chemin hors du dossier models"}, 400)
+                except ValueError:
+                    return self.send_json({"error": "chemin invalide"}, 400)
                 return self.send_json(read_safetensors_header(filepath))
             if path == "/api/comfyui/upload-image":
                 # Proxy vers ComfyUI /upload/image (multipart), enregistre dans input/
@@ -1789,6 +2102,8 @@ class Handler(SimpleHTTPRequestHandler):
                 if "multipart/form-data" not in boundary:
                     return self.send_json({"error": "multipart attendu"}, 400)
                 length = int(self.headers.get("Content-Length", 0))
+                if length > 25 * 1024 * 1024:
+                    return self.send_json({"error": "upload trop volumineux"}, 413)
                 raw = self.rfile.read(length)
                 # ComfyUI attend le champ "image" (pas "file")
                 raw = raw.replace(b'name="file"', b'name="image"')
@@ -1799,7 +2114,8 @@ class Handler(SimpleHTTPRequestHandler):
                         data = json.loads(r.read())
                     return self.send_json(data)
                 except Exception as e:
-                    return self.send_json({"error": str(e)}, 502)
+                    log_internal("upload-image", e)
+                    return self.send_json(error_payload("upload_failed", "envoi de l'image impossible"), 502)
             if path == "/api/comfyui/warmup":
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)) or b"{}")
                 base = (body.get("base") or "klein").lower()
@@ -1808,9 +2124,15 @@ class Handler(SimpleHTTPRequestHandler):
                 prompt = _warmup_prompt(base)
                 if not prompt:
                     return self.send_json({"ok": False, "error": "base non supportée"})
-                # Fire-and-forget : ne bloque pas la reponse, exécution en arrière-plan
-                import threading
-                threading.Thread(target=_run_warmup, args=(prompt,), daemon=True).start()
+                # Plafond : le slot reste tenu par le thread jusqu'a la fin du warmup.
+                if not _try_slot(_sema_generate):
+                    return self._overloaded()
+                try:
+                    threading.Thread(target=_run_warmup, args=(prompt,), daemon=True).start()
+                except Exception as e:
+                    _release_slot(_sema_generate)
+                    log_internal("warmup-start", e)
+                    return self.send_json(error_payload("internal_error", "pré-chargement impossible"), 500)
                 return self.send_json({"ok": True, "message": "Pré-chargement lancé"})
 
             if path == "/api/comfyui/open-folder":
@@ -1819,11 +2141,25 @@ class Handler(SimpleHTTPRequestHandler):
                 folder = body.get("folder", "")
                 if not folder or not os.path.isdir(folder):
                     return self.send_json({"ok": False, "error": "Dossier introuvable"})
+                # Securite : n'ouvrir que des dossiers sous les racines approuvees
+                abs_folder = os.path.abspath(folder)
+                allowed_roots = [os.path.abspath(COMFYUI_ROOT), os.path.abspath(BASE_DIR)]
+                ok_root = False
+                for root in allowed_roots:
+                    try:
+                        if os.path.commonpath([abs_folder, root]) == root:
+                            ok_root = True
+                            break
+                    except ValueError:
+                        pass
+                if not ok_root:
+                    return self.send_json({"ok": False, "error": "Dossier hors des racines autorisees"})
                 try:
                     os.startfile(folder)
                     return self.send_json({"ok": True})
                 except Exception as e:
-                    return self.send_json({"ok": False, "error": str(e)})
+                    log_internal("open-folder", e)
+                    return self.send_json({**error_payload("open_folder_failed", "ouverture du dossier impossible"), "ok": False})
             if path == "/api/comfyui/delete-model":
                 n = int(self.headers.get("Content-Length", 0))
                 body = json.loads(self.rfile.read(n) or b"{}")
@@ -1833,13 +2169,17 @@ class Handler(SimpleHTTPRequestHandler):
                 # Sécurité : ne supprimer que dans le dossier models
                 abs_path = os.path.abspath(filepath)
                 abs_models = os.path.abspath(MODELS_DIR)
-                if not abs_path.startswith(abs_models):
+                try:
+                    if os.path.commonpath([abs_path, abs_models]) != abs_models:
+                        return self.send_json({"ok": False, "error": "Hors du dossier models"})
+                except ValueError:
                     return self.send_json({"ok": False, "error": "Hors du dossier models"})
                 try:
                     os.remove(filepath)
                     return self.send_json({"ok": True})
                 except Exception as e:
-                    return self.send_json({"ok": False, "error": str(e)})
+                    log_internal("delete-model", e)
+                    return self.send_json({**error_payload("delete_failed", "suppression impossible"), "ok": False})
             if path == "/api/comfyui/generate":
                 n = int(self.headers.get("Content-Length", 0))
                 body = json.loads(self.rfile.read(n) or b"{}")
@@ -1851,6 +2191,15 @@ class Handler(SimpleHTTPRequestHandler):
                 width = int(body.get("width") or 768)
                 height = int(body.get("height") or 1152)
                 sampler = body.get("sampler") or "euler"
+                # Bornes de securite
+                if steps < 1 or steps > 80:
+                    return self.send_json({"error": "steps hors plage (1-80)"}, 400)
+                if width < 64 or width > 2048 or height < 64 or height > 2048:
+                    return self.send_json({"error": "dimensions hors plage (64-2048)"}, 400)
+                if cfg < 0 or cfg > 30:
+                    return self.send_json({"error": "cfg hors plage (0-30)"}, 400)
+                if len(prompt) > 10000:
+                    return self.send_json({"error": "prompt trop long"}, 400)
                 scheduler = body.get("scheduler") or "simple"
                 seed = int(body.get("seed") or -1)
                 if seed < 0:
@@ -1874,7 +2223,8 @@ class Handler(SimpleHTTPRequestHandler):
                         r.read()
                     return self.send_json({"ok": True, "message": "Envoyé à ComfyUI"})
                 except Exception as e:
-                    return self.send_json({"error": f"ComfyUI injoignable: {e}"}, 502)
+                    log_internal("comfyui-generate", e)
+                    return self.send_json(error_payload("comfyui_unreachable", "ComfyUI injoignable"), 502)
             if path == "/api/comfyui/save_workflow":
                 n = int(self.headers.get("Content-Length", 0))
                 body = json.loads(self.rfile.read(n) or b"{}")
@@ -1889,7 +2239,8 @@ class Handler(SimpleHTTPRequestHandler):
                 scan_comfyui_models(force=True)
                 return self.send_json({"ok": True, "path": dest})
         except Exception as e:
-            return self.send_json({"error": str(e)}, 500)
+            log_internal("http-post", e)
+            return self.send_json(error_payload("internal_error", "erreur interne"), 500)
         self.send_error(404)
 
     def _handle_describe(self):
@@ -1927,6 +2278,46 @@ class Handler(SimpleHTTPRequestHandler):
 class QuietServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
+    # Aligne la file d'acceptation sur le plafond : au-dela, le noyau ne
+    # doit pas refuser brutalement avant que l'on puisse repondre 429.
+    request_queue_size = MAX_CONCURRENT_CONNECTIONS
+
+    def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True,
+                 connection_sema=None):
+        # Semaphore injectable : les tests peuvent plafonner une instance
+        # dediee sans modifier l'etat global partage par le serveur reel.
+        self._connection_sema = connection_sema or _sema_connections
+        super().__init__(server_address, RequestHandlerClass, bind_and_activate)
+
+    def process_request(self, request, client_address):
+        """Plafonne les connexions simultanees avant de creer un thread.
+
+        En cas de saturation, on renvoie un 429 minimal puis on ferme : le
+        serveur ne cree pas de thread supplementaire et ne bloque pas les
+        connexions deja etablies.
+        """
+        if not _try_slot(self._connection_sema):
+            try:
+                request.sendall(
+                    b"HTTP/1.1 429 Too Many Requests\r\n"
+                    b"Retry-After: 1\r\n"
+                    b"Content-Length: 0\r\n"
+                    b"Connection: close\r\n\r\n")
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            _release_slot(self._connection_sema)
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            _release_slot(self._connection_sema)
 
     def handle_error(self, request, client_address):
         et, ev, _ = sys.exc_info()
@@ -1948,6 +2339,10 @@ if __name__ == "__main__":
     ALLOWED_ORIGINS.update({f"http://{host}:{PORT}", "http://127.0.0.1:8080",
                             "http://localhost:8080"})
     print(f"Flux Studio  ->  http://{host}:{PORT}")
+    print(f"Python: {sys.version.split()[0]}")
     print(f"DB: {DB_PATH}")
     print(f"ComfyUI: {MODELS_DIR}")
+    # Diagnostics rapides
+    print(f"ComfyUI root exists: {os.path.isdir(COMFYUI_ROOT)}")
+    print(f"DB dir writable: {os.access(os.path.dirname(DB_PATH), os.W_OK)}")
     QuietServer((host, PORT), Handler).serve_forever()

@@ -411,3 +411,11 @@ input[type="range"]::-webkit-slider-runnable-track {
 .gen-box textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(124,92,255,.18); }
 .gen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .gen-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* VramIndicator states */
+#vramIndicator.warn { color: var(--nsfw-soft); }
+#vramIndicator.crit { color: var(--nsfw-x); }
+
+/* Preferences modal */
+#prefsModal { align-items: center; justify-content: center; z-index: 10001; }
+#prefsModal .gen-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 24px; }
