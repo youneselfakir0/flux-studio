@@ -773,7 +773,22 @@ $("#appDescribe")?.addEventListener("click", () => {
   inp.onchange = () => { if (inp.files && inp.files[0]) openVisionSheet(inp.files[0]); };
   inp.click();
 });
-$("#appModel")?.addEventListener("change", populateAppLoras);
+const MODEL_DEFAULT_SIZE = {
+  'sdxl-base': [1024, 1024],
+  'sdxl-turbo': [512, 512],
+  'flux2-klein': [1024, 1024],
+  'flux1-dev': [1024, 1024],
+  'sd15-base': [512, 512],
+};
+function applyModelDefaults() {
+  const m = $("#appModel")?.value;
+  const [w, h] = MODEL_DEFAULT_SIZE[m] || [768, 768];
+  const wSel = $("#appW"), hSel = $("#appH");
+  if (wSel) { const o = [...wSel.options].find(o => o.value == w || o.textContent == w); if (o) wSel.value = o.value; }
+  if (hSel) { const o = [...hSel.options].find(o => o.value == h || o.textContent == h); if (o) hSel.value = o.value; }
+}
+$("#appModel")?.addEventListener("change", () => { populateAppLoras(); applyModelDefaults(); });
+applyModelDefaults();
 
 // ===================== DRAG & DROP IMAGE (Apple sheet) =====================
 (function wireDragDrop() {

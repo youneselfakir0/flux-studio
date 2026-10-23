@@ -175,7 +175,9 @@ export class PromptTab {
     this.loraList.innerHTML = rows.map(l => {
       const sel = this.selectedLoras.has(l.name);
       const trig = (l.triggers && l.triggers.length) ? l.triggers[0] : (l.trigger || '');
+      const prev = l.has_preview ? `/api/lora-preview?path=${encodeURIComponent(l.webPath || l.path)}` : '';
       return '<label class="gen-lora-row ' + (sel ? 'sel' : '') + '">'
+        + (prev ? '<img class="gen-lora-prev" src="' + prev + '" alt="" loading="lazy">' : '<span class="gen-lora-prev gen-lora-prev--none"></span>')
         + '<input type="checkbox" data-name="' + esc(l.name) + '" ' + (sel ? 'checked' : '') + '>'
         + '<span class="gen-lora-name">' + esc(l.display || l.name) + '</span>'
         + (trig ? ' <span class="gen-lora-trig">' + esc(trig) + '</span>' : '')

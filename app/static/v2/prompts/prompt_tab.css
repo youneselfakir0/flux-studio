@@ -343,3 +343,22 @@
   border-color: var(--primary-line);
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
+
+/* ---------- Vignette LoRA dans le generateur ---------- */
+.prompt-studio .gen-lora-prev {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+}
+.prompt-studio .gen-lora-prev--none {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  flex: 0 0 auto;
+  background: var(--surface-3);
+  border: 1px dashed var(--line);
+}
