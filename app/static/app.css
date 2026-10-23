@@ -68,7 +68,7 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
-h1, h2, h3, h4, .display { font-family: "Space Grotesk", Inter, sans-serif; font-weight: 600; letter-spacing: -.01em; margin: 0; }
+h1, h2, h3, h4, .display { font-family: "Space Grotesk", "DM Sans", sans-serif; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; }
 a { color: var(--primary); text-decoration: none; }
 ::selection { background: rgba(124, 92, 255, .35); }

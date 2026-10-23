@@ -707,6 +707,13 @@ async function appGenerate() {
   const lora = $("#appLora").value;
 
   try {
+    // Loading state in preview
+    const empty = $("#appPreviewEmpty");
+    const box = $("#appResult");
+    const imgBox = $("#appResultImg");
+    if (empty) empty.style.display = "none";
+    if (box) box.style.display = "block";
+    if (imgBox) imgBox.innerHTML = '<div class="app-preview-loading"><div class="spinner"></div><span>Génération en cours…</span></div>';
     applyCatalogWorkflow(model);
     const clips = graph.getAllNodes().filter(n => n.type === "CLIPTextEncode");
     if (clips[0]) clips[0].setWidget("text", prompt);
