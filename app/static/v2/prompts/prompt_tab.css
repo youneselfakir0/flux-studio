@@ -144,8 +144,12 @@
   border-radius: var(--r-lg);
   padding: 18px;
   min-height: 420px;
+  /* Reste visible sans ajouter de scroll à la page : les boutons d'action
+     (Enregistrer / Injecter) restent accessibles sur une fenêtre courte. */
   position: sticky;
   top: 16px;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
 }
 .editor-form { display: flex; flex-direction: column; gap: 14px; }
 .editor-form .field { display: flex; flex-direction: column; gap: 6px; }
