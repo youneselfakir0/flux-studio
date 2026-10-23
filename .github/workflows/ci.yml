@@ -26,7 +26,8 @@ concurrency:
 jobs:
   syntax:
     name: Syntaxe Python + JS
-    runs-on: ubuntu-latest
+    # Image figee : ubuntu-latest a bascule vers Ubuntu 26 le 2026-10-19.
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
 
     steps:
