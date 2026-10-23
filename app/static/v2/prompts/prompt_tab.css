@@ -1,0 +1,208 @@
+/* ==========================================================================
+   Flux Studio v2 — Prompt Studio
+   Design system : « Dark Studio Pro » (voir DESIGN.md)
+   Obsidienne #0b0d10 · Violet électrique #7c5cff · Cyan néon #00f0ff
+   Tout est scopé sous .prompt-studio pour éviter toute collision.
+   ========================================================================== */
+
+.prompt-studio {
+  /* Le conteneur est une .view : on neutralise le padding d'origine. */
+  padding: 22px 26px 40px;
+}
+
+/* ---------- En-tête ---------- */
+.prompt-studio .view-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.prompt-studio .view-head h1 {
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  background: linear-gradient(100deg, #fff 20%, var(--primary) 60%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.prompt-studio .view-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---------- Barre de filtres ---------- */
+.prompt-studio .filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.prompt-studio .filters .chip {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  border-radius: var(--r-full);
+  padding: 8px 14px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.prompt-studio .filters .chip::placeholder { color: var(--faint); }
+.prompt-studio .filters .chip:focus {
+  border-color: var(--primary-line);
+  color: #fff;
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.prompt-studio .filters .btn.primary { border-radius: var(--r-full); }
+
+/* ---------- Disposition ---------- */
+.prompt-studio .split {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(340px, 460px);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .prompt-studio .split { grid-template-columns: 1fr; }
+}
+
+/* ---------- Liste des templates ---------- */
+.prompt-list-panel {
+  min-height: 420px;
+}
+.prompt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.prompt-item {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.prompt-item:hover {
+  border-color: var(--outline-variant);
+  background: var(--surface-2);
+}
+.prompt-item.active {
+  border-color: var(--primary-line);
+  background: linear-gradient(180deg, var(--primary-soft), transparent 70%), var(--surface);
+  box-shadow: var(--glow);
+}
+.prompt-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.prompt-item-head b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prompt-item-head .btn { flex: 0 0 auto; }
+.prompt-preview {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prompt-preview i { color: var(--faint); font-style: normal; }
+.prompt-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.prompt-tags .chip {
+  padding: 3px 9px;
+  font-size: 11px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  border-color: transparent;
+  color: var(--text-dim);
+}
+
+/* ---------- Éditeur ---------- */
+.prompt-editor-panel .panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  min-height: 420px;
+  position: sticky;
+  top: 16px;
+}
+.editor-form { display: flex; flex-direction: column; gap: 14px; }
+.editor-form .field { display: flex; flex-direction: column; gap: 6px; }
+.editor-form label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.editor-form input[type="text"],
+.editor-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "Inter", sans-serif;
+  resize: vertical;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.editor-form textarea {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12.5px;
+}
+.editor-form input[type="text"]:focus,
+.editor-form textarea:focus {
+  border-color: var(--primary-line);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* ---------- Variante danger (absente du design system global) ---------- */
+.btn.danger {
+  background: transparent;
+  border-color: rgba(225, 29, 72, 0.4);
+  color: var(--nsfw-x);
+}
+.btn.danger:hover {
+  background: rgba(225, 29, 72, 0.12);
+  border-color: rgba(225, 29, 72, 0.6);
+  color: #fff;
+}
+
+/* ---------- État vide ---------- */
+.prompt-studio .empty .big { color: var(--primary); }
+.prompt-studio .empty b { display: block; color: var(--text-dim); font-size: 14px; }

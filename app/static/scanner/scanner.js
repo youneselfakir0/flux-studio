@@ -78,9 +78,11 @@ export class ModelScanner {
   }
 
   async getFileList(comfyRoot) {
-    // This would call the server API to get file list
-    // For now, return mock - in real implementation, call /api/comfyui/scan-files
-    const res = await fetch('/api/comfyui/scan-files?root=' + encodeURIComponent(comfyRoot));
+    const res = await fetch('/api/comfyui/scan-files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ root: comfyRoot }),
+    });
     return res.json();
   }
 

@@ -7,7 +7,7 @@ import { Signal, effect, derived } from '../core/state.js';
 import { bus, Events } from '../core/events.js';
 import { api } from '../core/api.js';
 import { images, queueHistory } from '../core/storage.js';
-import { graph, graphToComfyUI } from '../editor/graph.js';
+import { Graph, graph, graphToComfyUI } from '../editor/graph.js';
 import { WorkflowCatalog } from '../workflows/catalog.js';
 import { applyCatalogWorkflow, setModels, primeModels } from '../workflows/builder.js';
 
@@ -33,7 +33,9 @@ export class Gallery {
     this.filters = new Signal({
       baseModel: savedF.baseModel || '',
       favorite: savedF.favorite || false,
-      nsfw: savedF.nsfw || false,
+      safe: savedF.safe || false,
+      nsfwMax: savedF.nsfwMax || 4,
+      men: savedF.men || '',
       modelId: savedF.modelId || '',
     });
     
@@ -57,7 +59,12 @@ export class Gallery {
             <option value="">All Models</option>
           </select>
           <label class="filter-toggle"><input type="checkbox" data-filter="favorite"> ★ Favorites</label>
-          <label class="filter-toggle"><input type="checkbox" data-filter="nsfw"> NSFW</label>
+          <label class="filter-toggle"><input type="checkbox" data-filter="safe"> Safe (hide NSFW)</label>
+          <select class="filter-select" data-filter="men" title="Filtre de genre (côté serveur)">
+            <option value="">Tous</option>
+            <option value="only">♀ Femmes seulement</option>
+            <option value="0">✕ Sans hommes</option>
+          </select>
         </div>
         <div class="gallery-sort">
           <select class="sort-select" data-sort="sortBy">
@@ -176,6 +183,23 @@ export class Gallery {
     // Events
     Events.gallery.on('gallery:refresh', () => this.load());
     Events.gallery.on('gallery:add', (item) => this.addItem(item));
+    // Piloté par le segment NSFW de la barre supérieure (gouvernance globale)
+    Events.gallery.on('gallery:set-nsfw', (lvl) => {
+      const f = this.filters.value;
+      f.nsfwMax = (typeof lvl === 'number' && lvl >= 1 && lvl <= 4) ? lvl : 4;
+      this.filters.value = { ...f };
+      try { localStorage.setItem('filter:gallery', JSON.stringify(this.filters.value)); } catch (e) {}
+      this.page.value = 0;
+      this.load();
+    });
+    Events.gallery.on('gallery:set-men', (men) => {
+      const f = this.filters.value;
+      f.men = men || '';
+      this.filters.value = { ...f };
+      try { localStorage.setItem('filter:gallery', JSON.stringify(this.filters.value)); } catch (e) {}
+      this.page.value = 0;
+      this.load();
+    });
   }
 
   async load(append = false) {
@@ -192,7 +216,11 @@ export class Gallery {
       };
       
       if (filter.baseModel) params.base_model = filter.baseModel;
-      if (filter.nsfw) params.nsfw_max = '1'; // Only safe
+      // NSFW : le plafond du segment global (1..4) et l'interrupteur Safe se
+      // combinent — la valeur la plus stricte gagne.
+      const nsfwMax = Math.min(filter.nsfwMax || 4, filter.safe ? 1 : 4);
+      if (nsfwMax < 4) params.nsfw_max = String(nsfwMax);
+      if (filter.men) params.men = filter.men;
       
       // Load from IndexedDB first (local)
       const local = await images.list({ 
@@ -222,6 +250,9 @@ export class Gallery {
       let filtered = unique.filter(i => {
         if (filter.favorite && !i.favorite) return false;
         if (filter.modelId && i.model_id !== filter.modelId) return false;
+        // Garde-fou NSFW côté client (le filtre local IndexedDB ne le connaît pas)
+        const lvl = i.nsfw_level || (i.nsfw ? 3 : 1);
+        if (lvl > nsfwMax) return false;
         return true;
       });
       
@@ -690,11 +721,9 @@ export class GalleryQueue {
    * Utilise le catalogue de workflows pour le modèle de base,
    * puis injecte le prompt de l'item.
    */
-  buildPrompt(item) {
+    buildPrompt(item) {
     const model = (item.model_name || '').toLowerCase();
     let wfId = null;
-
-    // Mapper le modèle Civitai vers un workflow du catalogue
     if (model.includes('flux.2') || model.includes('klein')) wfId = 'flux2-klein';
     else if (model.includes('flux.1') || model.includes('flux1')) wfId = 'flux1-dev';
     else if (model.includes('sdxl') || model.includes('sd_xl')) wfId = 'sdxl-base';
@@ -702,36 +731,22 @@ export class GalleryQueue {
     else if (model.includes('ltx') || model.includes('video')) wfId = 'ltx-video';
     else if (model.includes('z-image') || model.includes('zimage')) wfId = 'z-image';
     else if (model.includes('qwen')) wfId = 'qwen-image';
-
     if (!wfId) return null;
-
-    // Construire le graphe via le catalogue
-    const wf = WorkflowCatalog.find(w => w.id === wfId);
-    if (!wf) return null;
-
-    // Construire le graphe dans l'éditeur temporaire
-    // On utilise applyCatalogWorkflow qui construit dans le graphe global
-    // Puis on exporte et on modifie le prompt
     try {
-      applyCatalogWorkflow(wfId);
-      const prompt = graphToComfyUI(graph);
-
-      // Injecter le prompt de l'item
+      const tempGraph = new Graph();
+      applyCatalogWorkflow(wfId, tempGraph);
+      const prompt = graphToComfyUI(tempGraph);
+      let pCount = 0;
       for (const nid of Object.keys(prompt)) {
         const n = prompt[nid];
-        if (n.class_type === 'CLIPTextEncode') {
-          // Premier CLIPTextEncode = positif, second = négatif
-          if (!n.inputs.text || n.inputs.text === wf.prompt || n.inputs.text === (wf.graph && wf.graph.prompt)) {
-            n.inputs.text = item.positive_prompt || wf.prompt || 'a beautiful woman';
-          } else {
-            n.inputs.text = item.negative_prompt || wf.negative || 'blurry, low quality';
-          }
+        if (n.class_type === 'CLIPTextEncode' || n.class_type === 'CLIPTextEncodeFlux') {
+          pCount++;
+          n.inputs.text = pCount === 1 ? (item.positive_prompt || 'a beautiful woman') : (item.negative_prompt || 'blurry, low quality');
         }
       }
-
       return prompt;
     } catch (e) {
-      console.error('[gallery] buildPrompt:', e);
+      console.error('[gallery] buildPrompt error:', e);
       return null;
     }
   }

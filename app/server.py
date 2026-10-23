@@ -1035,6 +1035,58 @@ def list_model_files():
     return files
 
 
+
+class VRAMManager:
+    def __init__(self):
+        self.current_model = None
+        self.heavy_models = {
+            'flux': True,
+            'sdxl': True,
+            'ltx': True,
+            'qwen': True
+        }
+
+    def _get_family(self, model_name):
+        if not model_name: return None
+        name = model_name.lower()
+        if 'flux' in name or 'klein' in name: return 'flux'
+        if 'sdxl' in name or 'xl' in name: return 'sdxl'
+        if 'ltx' in name: return 'ltx'
+        if 'qwen' in name: return 'qwen'
+        return 'light'
+
+    def check_and_free(self):
+        """
+        Analyze the current prompt to see if a heavy model swap is required.
+        If so, trigger ComfyUI's /free endpoint.
+        """
+        # This will be called within the context of a prompt
+        pass
+
+    def should_free(self, prompt):
+        # Find the loader node in the prompt
+        for node in prompt.values():
+            if node['class_type'] in ['CheckpointLoaderSimple', 'UNETLoader']:
+                # Extract the model name from inputs
+                # Checkpoints use 'ckpt_name', UNETs use 'unet_name'
+                model_name = node['inputs'].get('ckpt_name') or node['inputs'].get('unet_name')
+                if not model_name: continue
+                
+                new_family = self._get_family(model_name)
+                
+                # If we are switching between two different heavy families, we MUST free
+                if self.current_model and self.current_model != model_name:
+                    old_family = self._get_family(self.current_model)
+                    if self.heavy_models.get(new_family) and self.heavy_models.get(old_family):
+                        self.current_model = model_name
+                        return True
+                
+                self.current_model = model_name
+                break
+        return False
+
+vram_manager = VRAMManager()
+
 # ---------- ComfyUI execution bridge ----------
 COMFYUI_URL = "http://127.0.0.1:8188"
 
@@ -1077,6 +1129,10 @@ def _comfy_post_prompt(prompt_dict, force_validate=False):
 
 def comfy_run(prompt_dict):
     """Envoie un graphe (format ComfyUI) a ComfyUI pour EXECUTION."""
+    # Automated VRAM Management: Free GPU if heavy model swap detected
+    if vram_manager.should_free(prompt_dict):
+        comfy_free(unload_models=True, free_memory=True)
+    
     return _comfy_post_prompt(prompt_dict)
 
 
@@ -1503,6 +1559,12 @@ def build_generate_workflow(model, prompt, width, height, steps, cfg, sampler, s
 
 # ---------- HTTP ----------
 class Handler(SimpleHTTPRequestHandler):
+    # HTTP/1.1 + keep-alive : indispensable pour les <script type="module">.
+    # En HTTP/1.0 (défaut de SimpleHTTPRequestHandler) chaque requête ferme la
+    # connexion, et Chrome abandonne les graphes de modules lourds
+    # ("Failed to fetch dynamically imported module").
+    protocol_version = "HTTP/1.1"
+
     def __init__(self, *a, **k):
         super().__init__(*a, directory=STATIC_DIR, **k)
 

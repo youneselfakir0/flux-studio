@@ -181,54 +181,29 @@ export class Graph {
   validate() {
     const errors = [];
     const warnings = [];
-
     for (const node of this.nodes.values()) {
       const def = getNode(node.type);
-      if (!def) {
-        errors.push({ nodeId: node.id, type: 'unknown-node', message: `Type de nœud inconnu : ${node.type}` });
-        continue;
-      }
-      // Entrees declarees dans le registre
+      if (!def) { errors.push({ nodeId: node.id, type: "unknown-node", message: `Type de nœud inconnu : ${node.type}` }); continue; }
       for (const inp of def.inputs || []) {
-        const name = (typeof inp === 'string') ? inp : inp.name;
+        const name = (typeof inp === "string") ? inp : inp.name;
         const data = node.inputs.get(name);
         if (!data) continue;
-        if (!data.connections.size) {
-          // Un widget du meme nom compte comme une valeur fournie
-          const hasWidget = node.widgets.has(name);
-          if (!hasWidget) {
-            errors.push({
-              nodeId: node.id, type: 'missing-input', input: name,
-              message: `${node.title} : entrée « ${name} » non connectée`,
-            });
-          }
+        if (!data.connections.size && !node.widgets.has(name)) {
+          errors.push({ nodeId: node.id, type: "missing-input", input: name, message: `${node.title} : entrée « ${name} » requise` });
         }
       }
-      // Widgets obligatoires declares sans valeur
       for (const w of def.widgets || []) {
-        if (!w.required) continue;
-        const v = node.widgets.get(w.name);
-        if (v === null || v === undefined || v === '') {
-          warnings.push({
-            nodeId: node.id, type: 'empty-widget', input: w.name,
-            message: `${node.title} : « ${w.label || w.name} » vide`,
-          });
+        if (w.required && (node.widgets.get(w.name) === null || node.widgets.get(w.name) === "")) {
+          warnings.push({ nodeId: node.id, type: "empty-widget", input: w.name, message: `${node.title} : « ${w.label || w.name} » est obligatoire` });
         }
       }
     }
-
-    // Cycles
-    try { this.topologicalSort(); }
-    catch (e) { errors.push({ type: 'cycle', message: e.message }); }
-
-    // Aucun noeud terminal (SaveImage / PreviewImage)
+    try { this.topologicalSort(); } catch (e) { errors.push({ type: "cycle", message: e.message }); }
     const hasSink = [...this.nodes.values()].some(n => getNode(n.type)?.output_node);
-    if (!hasSink && this.nodes.size) {
-      errors.push({ type: 'no-sink', message: 'Aucune sortie (aucun nœud SaveImage / PreviewImage)' });
-    }
-
+    if (!hasSink && this.nodes.size) errors.push({ type: "no-sink", message: "Aucune sortie" });
     return { valid: errors.length === 0, errors, warnings };
   }
+
 
   /**
    * Execute le graphe via ComfyUI.

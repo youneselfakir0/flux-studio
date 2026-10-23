@@ -77,12 +77,12 @@ function rn(category, name) {
 }
 
 /** Applique un workflow du catalogue : construit ET câble tout. */
-export function applyCatalogWorkflow(id) {
+export function applyCatalogWorkflow(id, targetGraph = graph) {
   const wf = findWorkflow(id);
   if (!wf) throw new Error(`Workflow inconnu : ${id}`);
   const g = wf.graph || {};
   const ENC = _cacheNodeAvailable ? 'FluxStudioCachedConditioning' : 'CLIPTextEncode';
-  graph.clear();
+  targetGraph.clear();
 
   const pos = (x, y) => ({ x, y });
 
@@ -90,61 +90,61 @@ export function applyCatalogWorkflow(id) {
    * Différences avec FLUX.1 : encodeur Qwen (type=flux2), Flux2Scheduler,
    * CFGGuider + SamplerCustomAdvanced au lieu de BasicScheduler + SamplerCustom. */
   if (g.kind === 'flux2') {
-    const unet = graph.addNode('UNETLoader', pos(60, 260));
+    const unet = targetGraph.addNode('UNETLoader', pos(60, 260));
     unet.setWidget('unet_name', rn('diffusion_models', g.unet.name));
     unet.setWidget('weight_dtype', g.unet.dtype || 'default');
 
-    const clip = graph.addNode('CLIPLoader', pos(60, 480));
+    const clip = targetGraph.addNode('CLIPLoader', pos(60, 480));
     clip.setWidget('clip_name', rn('clip', g.clip.name));
     clip.setWidget('type', g.clip.kind || 'flux2');
 
-    const pPos = graph.addNode(ENC, pos(440, 120));
+    const pPos = targetGraph.addNode(ENC, pos(440, 120));
     pPos.setWidget('text', wf.prompt || g.prompt || '');
     if (_cacheNodeAvailable) pPos.setWidget('cache_name', g.unet?.name || g.loader?.ckpt || 'base');
     /* Distillé ⇒ cfg=1. On réutilise pPos pour negative. */
     const pNeg = pPos;
 
-    const lat = graph.addNode(g.latent.type, pos(440, 540));
+    const lat = targetGraph.addNode(g.latent.type, pos(440, 540));
     lat.setWidget('width', g.latent.width);
     lat.setWidget('height', g.latent.height);
     lat.setWidget('batch_size', 1);
 
-    const pick = graph.addNode('KSamplerSelect', pos(780, 700));
+    const pick = targetGraph.addNode('KSamplerSelect', pos(780, 700));
     pick.setWidget('sampler_name', 'euler');
 
     // Flux2Scheduler prend width/height : indispensable pour Klein
-    const sched = graph.addNode('Flux2Scheduler', pos(780, 820));
+    const sched = targetGraph.addNode('Flux2Scheduler', pos(780, 820));
     sched.setWidget('steps', g.steps ?? 4);
     sched.setWidget('width', g.latent.width);
     sched.setWidget('height', g.latent.height);
 
-    const noise = graph.addNode('RandomNoise', pos(780, 400));
+    const noise = targetGraph.addNode('RandomNoise', pos(780, 400));
     noise.setWidget('noise_seed', 42);
 
-    const guider = graph.addNode('CFGGuider', pos(1040, 240));
+    const guider = targetGraph.addNode('CFGGuider', pos(1040, 240));
     guider.setWidget('cfg', g.cfg ?? 1);
 
-    const sampler = graph.addNode('SamplerCustomAdvanced', pos(1300, 300));
+    const sampler = targetGraph.addNode('SamplerCustomAdvanced', pos(1300, 300));
 
-    const vae = graph.addNode('VAELoader', pos(1040, 700));
+    const vae = targetGraph.addNode('VAELoader', pos(1040, 700));
     vae.setWidget('vae_name', rn('vae', g.vae.name));
 
-    const decode = graph.addNode('VAEDecode', pos(1560, 300));
-    const save = graph.addNode('SaveImage', pos(1820, 300));
+    const decode = targetGraph.addNode('VAEDecode', pos(1560, 300));
+    const save = targetGraph.addNode('SaveImage', pos(1820, 300));
     save.setWidget('filename_prefix', 'flux_studio');
 
-    graph.connect(clip.id, 'CLIP', pPos.id, 'clip');
-    graph.connect(unet.id, 'MODEL', guider.id, 'model');
-    graph.connect(pPos.id, 'CONDITIONING', guider.id, 'positive');
-    graph.connect(pNeg.id, 'CONDITIONING', guider.id, 'negative');
-    graph.connect(noise.id, 'NOISE', sampler.id, 'noise');
-    graph.connect(guider.id, 'GUIDER', sampler.id, 'guider');
-    graph.connect(pick.id, 'SAMPLER', sampler.id, 'sampler');
-    graph.connect(sched.id, 'SIGMAS', sampler.id, 'sigmas');
-    graph.connect(lat.id, 'LATENT', sampler.id, 'latent_image');
-    graph.connect(sampler.id, 'LATENT', decode.id, 'samples');
-    graph.connect(vae.id, 'VAE', decode.id, 'vae');
-    graph.connect(decode.id, 'IMAGE', save.id, 'images');
+    targetGraph.connect(clip.id, 'CLIP', pPos.id, 'clip');
+    targetGraph.connect(unet.id, 'MODEL', guider.id, 'model');
+    targetGraph.connect(pPos.id, 'CONDITIONING', guider.id, 'positive');
+    targetGraph.connect(pNeg.id, 'CONDITIONING', guider.id, 'negative');
+    targetGraph.connect(noise.id, 'NOISE', sampler.id, 'noise');
+    targetGraph.connect(guider.id, 'GUIDER', sampler.id, 'guider');
+    targetGraph.connect(pick.id, 'SAMPLER', sampler.id, 'sampler');
+    targetGraph.connect(sched.id, 'SIGMAS', sampler.id, 'sigmas');
+    targetGraph.connect(lat.id, 'LATENT', sampler.id, 'latent_image');
+    targetGraph.connect(sampler.id, 'LATENT', decode.id, 'samples');
+    targetGraph.connect(vae.id, 'VAE', decode.id, 'vae');
+    targetGraph.connect(decode.id, 'IMAGE', save.id, 'images');
 
     if (g.loraNode && wf.loras && wf.loras.length) {
       const modelConn = srcOf(guider, 'model');
@@ -161,64 +161,64 @@ export function applyCatalogWorkflow(id) {
       );
     }
 
-    return { nodes: graph.getAllNodes().length, edges: graph.getEdges().length };
+    return { nodes: targetGraph.getAllNodes().length, edges: targetGraph.getEdges().length };
   }
 
   /* ---------- Pipeline FLUX.1 ---------- */
   if (g.unet) {
-    const unet = graph.addNode('UNETLoader', pos(60, 260));
+    const unet = targetGraph.addNode('UNETLoader', pos(60, 260));
     unet.setWidget('unet_name', rn('diffusion_models', g.unet.name));
     unet.setWidget('weight_dtype', g.unet.dtype || 'default');
 
-    const clip = graph.addNode('DualCLIPLoader', pos(60, 480));
+    const clip = targetGraph.addNode('DualCLIPLoader', pos(60, 480));
     clip.setWidget('clip_name1', rn('clip', g.clip.clip1));
     clip.setWidget('clip_name2', rn('clip', g.clip.clip2));
     clip.setWidget('type', g.clip.kind || 'flux');
 
-    const pPos = graph.addNode(ENC, pos(420, 120));
+    const pPos = targetGraph.addNode(ENC, pos(420, 120));
     pPos.setWidget('text', wf.prompt || g.prompt || '');
     if (_cacheNodeAvailable) pPos.setWidget('cache_name', g.unet?.name || g.loader?.ckpt || 'base');
-    const pNeg = graph.addNode(ENC, pos(420, 320));
+    const pNeg = targetGraph.addNode(ENC, pos(420, 320));
     pNeg.setWidget('text', wf.negative || g.negative || '');
     if (_cacheNodeAvailable) pNeg.setWidget('cache_name', g.unet?.name || g.loader?.ckpt || 'base');
 
-    const lat = graph.addNode(g.latent.type, pos(420, 540));
+    const lat = targetGraph.addNode(g.latent.type, pos(420, 540));
     lat.setWidget('width', g.latent.width);
     lat.setWidget('height', g.latent.height);
     lat.setWidget('batch_size', 1);
 
-    const pick = graph.addNode('KSamplerSelect', pos(760, 700));
+    const pick = targetGraph.addNode('KSamplerSelect', pos(760, 700));
     pick.setWidget('sampler_name', g.samplerSelect.name);
 
-    const sched = graph.addNode('BasicScheduler', pos(760, 810));
+    const sched = targetGraph.addNode('BasicScheduler', pos(760, 810));
     sched.setWidget('scheduler', g.scheduler.kind);
     sched.setWidget('steps', g.scheduler.steps);
     sched.setWidget('denoise', g.scheduler.denoise);
 
-    const sampler = graph.addNode('SamplerCustom', pos(760, 300));
+    const sampler = targetGraph.addNode('SamplerCustom', pos(760, 300));
     sampler.setWidget('add_noise', g.sampler.add_noise);
     sampler.setWidget('noise_seed', g.sampler.seed);
     sampler.setWidget('cfg', g.sampler.cfg);
 
-    const vae = graph.addNode('VAELoader', pos(1060, 700));
+    const vae = targetGraph.addNode('VAELoader', pos(1060, 700));
     vae.setWidget('vae_name', rn('vae', g.vae.name));
 
-    const decode = graph.addNode('VAEDecode', pos(1360, 300));
-    const save = graph.addNode('SaveImage', pos(1640, 300));
+    const decode = targetGraph.addNode('VAEDecode', pos(1360, 300));
+    const save = targetGraph.addNode('SaveImage', pos(1640, 300));
     save.setWidget('filename_prefix', 'flux_studio');
 
-    graph.connect(clip.id, 'CLIP', pPos.id, 'clip');
-    graph.connect(clip.id, 'CLIP', pNeg.id, 'clip');
-    graph.connect(unet.id, 'MODEL', sched.id, 'model');
-    graph.connect(unet.id, 'MODEL', sampler.id, 'model');
-    graph.connect(pPos.id, 'CONDITIONING', sampler.id, 'positive');
-    graph.connect(pNeg.id, 'CONDITIONING', sampler.id, 'negative');
-    graph.connect(pick.id, 'SAMPLER', sampler.id, 'sampler');
-    graph.connect(sched.id, 'SIGMAS', sampler.id, 'sigmas');
-    graph.connect(lat.id, 'LATENT', sampler.id, 'latent_image');
-    graph.connect(sampler.id, 'LATENT', decode.id, 'samples');
-    graph.connect(vae.id, 'VAE', decode.id, 'vae');
-    graph.connect(decode.id, 'IMAGE', save.id, 'images');
+    targetGraph.connect(clip.id, 'CLIP', pPos.id, 'clip');
+    targetGraph.connect(clip.id, 'CLIP', pNeg.id, 'clip');
+    targetGraph.connect(unet.id, 'MODEL', sched.id, 'model');
+    targetGraph.connect(unet.id, 'MODEL', sampler.id, 'model');
+    targetGraph.connect(pPos.id, 'CONDITIONING', sampler.id, 'positive');
+    targetGraph.connect(pNeg.id, 'CONDITIONING', sampler.id, 'negative');
+    targetGraph.connect(pick.id, 'SAMPLER', sampler.id, 'sampler');
+    targetGraph.connect(sched.id, 'SIGMAS', sampler.id, 'sigmas');
+    targetGraph.connect(lat.id, 'LATENT', sampler.id, 'latent_image');
+    targetGraph.connect(sampler.id, 'LATENT', decode.id, 'samples');
+    targetGraph.connect(vae.id, 'VAE', decode.id, 'vae');
+    targetGraph.connect(decode.id, 'IMAGE', save.id, 'images');
 
     // LoRA optionnel : intercepte MODEL (sampler + scheduler) et CLIP (2 encodeurs)
     if (g.loraNode && wf.loras && wf.loras.length) {
@@ -237,27 +237,27 @@ export function applyCatalogWorkflow(id) {
       );
     }
 
-    return { nodes: graph.getAllNodes().length, edges: graph.getEdges().length };
+    return { nodes: targetGraph.getAllNodes().length, edges: targetGraph.getEdges().length };
   }
 
   /* ---------- Pipeline Checkpoint (SDXL / SD 1.5) ---------- */
   if (g.loader) {
-    const ckpt = graph.addNode('CheckpointLoaderSimple', pos(80, 260));
+    const ckpt = targetGraph.addNode('CheckpointLoaderSimple', pos(80, 260));
     ckpt.setWidget('ckpt_name', rn('checkpoints', g.loader.ckpt));
 
-    const pPos = graph.addNode(ENC, pos(440, 120));
+    const pPos = targetGraph.addNode(ENC, pos(440, 120));
     pPos.setWidget('text', wf.prompt || g.prompt || '');
     if (_cacheNodeAvailable) pPos.setWidget('cache_name', g.unet?.name || g.loader?.ckpt || 'base');
-    const pNeg = graph.addNode(ENC, pos(440, 320));
+    const pNeg = targetGraph.addNode(ENC, pos(440, 320));
     pNeg.setWidget('text', wf.negative || g.negative || '');
     if (_cacheNodeAvailable) pNeg.setWidget('cache_name', g.unet?.name || g.loader?.ckpt || 'base');
 
-    const lat = graph.addNode(g.latent.type, pos(440, 540));
+    const lat = targetGraph.addNode(g.latent.type, pos(440, 540));
     lat.setWidget('width', g.latent.width);
     lat.setWidget('height', g.latent.height);
     lat.setWidget('batch_size', 1);
 
-    const sampler = graph.addNode('KSampler', pos(800, 300));
+    const sampler = targetGraph.addNode('KSampler', pos(800, 300));
     sampler.setWidget('steps', g.sampler.steps);
     sampler.setWidget('cfg', g.sampler.cfg);
     sampler.setWidget('sampler_name', g.sampler.sampler);
@@ -265,19 +265,19 @@ export function applyCatalogWorkflow(id) {
     sampler.setWidget('seed', 42);
     sampler.setWidget('denoise', 1);
 
-    const decode = graph.addNode('VAEDecode', pos(1140, 300));
-    const save = graph.addNode('SaveImage', pos(1420, 300));
+    const decode = targetGraph.addNode('VAEDecode', pos(1140, 300));
+    const save = targetGraph.addNode('SaveImage', pos(1420, 300));
     save.setWidget('filename_prefix', 'flux_studio');
 
-    graph.connect(ckpt.id, 'CLIP', pPos.id, 'clip');
-    graph.connect(ckpt.id, 'CLIP', pNeg.id, 'clip');
-    graph.connect(ckpt.id, 'MODEL', sampler.id, 'model');
-    graph.connect(pPos.id, 'CONDITIONING', sampler.id, 'positive');
-    graph.connect(pNeg.id, 'CONDITIONING', sampler.id, 'negative');
-    graph.connect(lat.id, 'LATENT', sampler.id, 'latent_image');
-    graph.connect(sampler.id, 'LATENT', decode.id, 'samples');
-    graph.connect(ckpt.id, 'VAE', decode.id, 'vae');
-    graph.connect(decode.id, 'IMAGE', save.id, 'images');
+    targetGraph.connect(ckpt.id, 'CLIP', pPos.id, 'clip');
+    targetGraph.connect(ckpt.id, 'CLIP', pNeg.id, 'clip');
+    targetGraph.connect(ckpt.id, 'MODEL', sampler.id, 'model');
+    targetGraph.connect(pPos.id, 'CONDITIONING', sampler.id, 'positive');
+    targetGraph.connect(pNeg.id, 'CONDITIONING', sampler.id, 'negative');
+    targetGraph.connect(lat.id, 'LATENT', sampler.id, 'latent_image');
+    targetGraph.connect(sampler.id, 'LATENT', decode.id, 'samples');
+    targetGraph.connect(ckpt.id, 'VAE', decode.id, 'vae');
+    targetGraph.connect(decode.id, 'IMAGE', save.id, 'images');
 
     if (g.loraNode && wf.loras && wf.loras.length) {
       const modelConn = srcOf(sampler, 'model');
@@ -294,22 +294,22 @@ export function applyCatalogWorkflow(id) {
       );
     }
 
-    return { nodes: graph.getAllNodes().length, edges: graph.getEdges().length };
+    return { nodes: targetGraph.getAllNodes().length, edges: targetGraph.getEdges().length };
   }
 
   /* ---------- Utility : upscale ---------- */
   if (wf.isUtility) {
-    const load = graph.addNode('LoadImage', pos(120, 300));
-    const model = graph.addNode('UpscaleModelLoader', pos(120, 520));
+    const load = targetGraph.addNode('LoadImage', pos(120, 300));
+    const model = targetGraph.addNode('UpscaleModelLoader', pos(120, 520));
     model.setWidget('model_name', rn('upscale_models', wf.upscaler));
-    const up = graph.addNode('ImageUpscaleWithModel', pos(600, 380));
-    const save = graph.addNode('SaveImage', pos(880, 380));
+    const up = targetGraph.addNode('ImageUpscaleWithModel', pos(600, 380));
+    const save = targetGraph.addNode('SaveImage', pos(880, 380));
     save.setWidget('filename_prefix', 'flux_studio/upscale');
 
-    graph.connect(load.id, 'IMAGE', up.id, 'image');
-    graph.connect(model.id, 'UPSCALE_MODEL', up.id, 'upscale_model');
-    graph.connect(up.id, 'IMAGE', save.id, 'images');
-    return { nodes: graph.getAllNodes().length, edges: graph.getEdges().length };
+    targetGraph.connect(load.id, 'IMAGE', up.id, 'image');
+    targetGraph.connect(model.id, 'UPSCALE_MODEL', up.id, 'upscale_model');
+    targetGraph.connect(up.id, 'IMAGE', save.id, 'images');
+    return { nodes: targetGraph.getAllNodes().length, edges: targetGraph.getEdges().length };
   }
 
   throw new Error('Workflow sans définition de graphe');

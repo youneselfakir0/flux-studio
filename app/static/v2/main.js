@@ -20,6 +20,8 @@ import { createGallery } from '../gallery/grid.js';
 import { createModelBrowser } from '../models/browser.js';
 import { createCanvas2D } from '../canvas/editor.js';
 import { createWorkflowLibrary } from '../workflows/library.js';
+import { PromptTab } from './prompts/prompt_tab.js';
+
 import { Templates, getTemplate, getAllTemplates } from '../workflows/templates.js';
 import { applyCatalogWorkflow, primeCacheNode } from '../workflows/builder.js';
 import { WorkflowCatalog } from '../workflows/catalog.js';
@@ -59,7 +61,7 @@ const state = {
 };
 
 // ===================== MODULES =====================
-let canvas = null, palette = null, inspector = null, gallery = null, modelBrowser = null, canvas2d = null, wfLibrary = null, quickstart = null;
+let canvas = null, palette = null, inspector = null, gallery = null, modelBrowser = null, canvas2d = null, wfLibrary = null, quickstart = null, promptStudio = null;
 let imgAbort = null;
 
 /* ===================== Palette de mots-clés (Ctrl+K) ===================== */
@@ -103,6 +105,9 @@ function mountLoraInventory() {
         <div class="lora-bar-row"><span>${esc(b || 'Inconnu')}</span><span>${n}</span></div>
         <div class="lora-bar-track"><div class="lora-bar-fill" style="width:${Math.round(100 * n / max)}%"></div></div>
       </div>`).join('');
+    // L'index LoRA vient d'arriver : le <select> du Mode App (rempli au boot,
+    // avant la fin du chargement) doit être re-rempli.
+    if (typeof populateAppLoras === 'function') populateAppLoras();
   });
 }
 
@@ -133,12 +138,34 @@ function go(view) {
   if (tb) tb.style.display = (view === "workflow") ? "" : "none";
 
   if (view === "gallery" && !gallery) gallery = createGallery($("#galleryRoot"));
+  if (view === "prompts" && !promptStudio) promptStudio = new PromptTab($("#view-prompts"));
   if (view === "models" && !modelBrowser) modelBrowser = createModelBrowser($("#modelsRoot"));
   if (view === "canvas2d" && !canvas2d) canvas2d = createCanvas2D($("#canvas2dRoot"));
   if (view === "workflow") setTimeout(() => canvas?.resize(), 50);
   if (view === "app") populateAppLoras();
 }
 $$(".topnav-tab").forEach(t => t.onclick = () => go(t.dataset.view));
+
+// ===================== PONT D'ÉVÉNEMENTS (modules -> shell) =====================
+// Les modules (Prompt Studio, Gallery…) émettent sur le bus ; le shell traduit
+// en actions DOM concrètes. Aucun module ne touche au DOM d'un autre.
+Events.ui.on('ui:toast', (payload) => {
+  const p = typeof payload === 'string' ? { message: payload } : (payload || {});
+  toast(p.message || '', p.type);
+});
+
+Events.ui.on('ui:switch-view', (payload) => {
+  const view = (typeof payload === 'string') ? payload : payload?.view;
+  if (view) go(view);
+});
+
+// Prompt Studio -> Mode App : remplit les champs puis bascule sur la vue App.
+Events.prompt.on('prompt:inject', ({ positive, negative } = {}) => {
+  const pos = $("#appPrompt");
+  const neg = $("#appNeg");
+  if (pos) { pos.value = positive || ""; pos.dispatchEvent(new Event('input', { bubbles: true })); }
+  if (neg) { neg.value = negative || ""; neg.dispatchEvent(new Event('input', { bubbles: true })); }
+});
 
 // ===================== SAFE MODE / NSFW =====================
 function applySafe() { document.body.classList.toggle("safe", state.safe !== false); }
@@ -151,18 +178,20 @@ function setSafe(on) {
 }
 $("#safeToggle").onchange = (e) => setSafe(e.target.checked);
 
+// Gouvernance NSFW globale : le segment pilote le Gallery (seul moteur de liste réel).
 $$("#nsfwSeg button").forEach(b => b.onclick = () => {
   $$("#nsfwSeg button").forEach(x => x.classList.remove("on"));
   b.classList.add("on");
   state.nsfwMax = { "None": 1, "Soft": 2, "Mature": 3, "X": 4 }[b.textContent.trim()] || 4;
-  loadImages(true);
+  Events.gallery.emit("gallery:set-nsfw", state.nsfwMax);
+  toast(`Plafond NSFW global : ${b.textContent.trim()}`);
 });
 
 $$(".chip[data-men]").forEach(c => c.onclick = () => {
   $$(".chip[data-men]").forEach(x => x.classList.remove("on"));
   c.classList.add("on");
   state.men = c.dataset.men;
-  loadImages(true);
+  Events.gallery.emit("gallery:set-men", state.men);
 });
 
 // ===================== STATS / CATEGORIES =====================
@@ -185,103 +214,9 @@ async function loadCategories() {
     const fType = $("#fType"); if (fType) fType.innerHTML = '<option value="">Tous types</option>' + types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
     const fTag = $("#fTag"); if (fTag) fTag.innerHTML = '<option value="">Tous tags</option>' + (c.tags || []).slice(0, 200).map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
     const civBase = $("#civBase"); if (civBase) civBase.innerHTML = '<option value="">Toutes bases</option>' + bases.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join("");
-    const bl = $("#baseList"); if (bl) {
-      bl.innerHTML = bases.map(b => {
-        const col = baseColor(b);
-        return `<div class="base-chip" data-base="${esc(b)}" style="--bc:${col}"><span class="dot" style="background:${col};color:${col}"></span>${esc(b)}</div>`;
-      }).join("");
-      $$("#baseList .base-chip").forEach(n => n.onclick = () => {
-        go('prompts');
-        state.base = (n.dataset.base === state.base) ? "" : n.dataset.base;
-        if ($("#fBase")) $("#fBase").value = state.base;
-        $$("#baseList .base-chip").forEach(x => x.classList.toggle("on", x.dataset.base === state.base));
-        loadImages(true);
-      });
-    }
-    const tc = $("#tagCloud"); if (tc) {
-      tc.innerHTML = (c.tags || []).slice(0, 14).map(t => `<span class="chip" data-tag="${esc(t)}">${esc(t)}</span>`).join("");
-      $$("#tagCloud .chip").forEach(n => n.onclick = () => {
-        go('prompts');
-        state.tag = (n.dataset.tag === state.tag) ? "" : n.dataset.tag;
-        if ($("#fTag")) $("#fTag").value = state.tag;
-        loadImages(true);
-      });
-    }
+    // NB : #baseList / #tagCloud vivaient dans la vue « prompts », désormais
+    // remplacée par le Prompt Studio. Le filtre par base se fait dans le Gallery.
   } catch {}
-}
-
-// ===================== PROMPTS (classic view) =====================
-$("#fBase")?.addEventListener("change", (e) => { state.base = e.target.value; loadImages(true); });
-$("#fType")?.addEventListener("change", (e) => { state.type = e.target.value; loadImages(true); });
-$("#fTag")?.addEventListener("change", (e) => { state.tag = e.target.value; loadImages(true); });
-let searchTimer;
-$("#railSearch")?.addEventListener("input", (e) => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => { state.search = e.target.value.trim(); go('prompts'); loadImages(true); }, 350);
-});
-
-async function loadImages(reset) {
-  const grid = $("#promptGrid"); if (!grid) return;
-  if (imgAbort) imgAbort.abort();
-  const ctl = new AbortController();
-  imgAbort = ctl;
-  if (reset) { state.offset = 0; state.images = []; const m = $("#promptMore"); if (m) m.innerHTML = ""; }
-  const first = reset || !state.images.length;
-  if (first) grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="spinner" style="margin:0 auto"></div></div>`;
-  else { const m = $("#promptMore"); if (m) m.innerHTML = `<span class="faint">Chargement…</span>`; }
-  const offset = state.offset;
-  const q = new URLSearchParams({ limit: state.limit, offset });
-  if (state.base) q.set("base_model", state.base);
-  if (state.type) q.set("type", state.type);
-  if (state.tag) q.set("tag", state.tag);
-  if (state.search) q.set("search", state.search);
-  if (state.men) q.set("men", state.men);
-  q.set("nsfw_max", state.nsfwMax);
-  let rows = [];
-  try { rows = await fetch("/api/images?" + q.toString(), { signal: ctl.signal }).then(r => r.json()); }
-  catch (e) { if (e?.name === "AbortError") return; }
-  if (ctl !== imgAbort) return;
-  rows = rows || [];
-  state.images = reset ? rows : state.images.concat(rows);
-  state.offset = offset + state.limit;
-  renderPrompts(rows.length >= state.limit);
-}
-
-function cardHTML(im) {
-  const lvl = im.nsfw_level || (im.nsfw ? 3 : 1);
-  const video = isVideo(im.url);
-  const url = video ? "" : thumb(im.url);
-  const fallback = "this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',textContent:'▣'}))";
-  const pic = video ? `<div class="ph" style="font-size:26px">▶</div>` : (url ? `<img loading="lazy" src="${esc(url)}" onerror="${fallback}">` : `<div class="ph">▣</div>`);
-  return `
-  <article class="card" data-id="${esc(im.civitai_image_id)}">
-    <div class="thumb ${lvl > 1 ? "nsfw" : ""}">${pic}
-      <div class="badges"><span class="badge ${lvlClass(lvl)}">${lvlName(lvl)}</span>${im.base_model ? `<span class="badge">${esc(im.base_model)}</span>` : ""}</div>
-    </div>
-    <div class="body">
-      <div class="title">${esc(im.model_name || "—")}</div>
-      <div class="prompt">${esc((im.positive_prompt || "").slice(0, 180)) || "<i>pas de prompt</i>"}</div>
-      <div class="meta"><span>${im.width || "?"}×${im.height || "?"}</span><span>·</span><span>${esc(im.sampler || "")}</span></div>
-      <div class="actions"><button class="btn sm ghost" data-copy="${esc(im.civitai_image_id)}">Copier</button><button class="btn sm">Détails</button></div>
-    </div>
-  </article>`;
-}
-
-function renderPrompts(hasMore) {
-  const g = $("#promptGrid"); if (!g) return;
-  if (!state.images.length) {
-    g.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="big">✦</div><b>Aucun prompt</b><div class="mt">Élargis les filtres ou lance le scraper.</div></div>`;
-    const m = $("#promptMore"); if (m) m.innerHTML = ""; return;
-  }
-  g.innerHTML = state.images.map(cardHTML).join("");
-  $$("#promptGrid .card").forEach(c => c.onclick = (e) => { if (!e.target.closest('[data-copy]')) openDrawer(c.dataset.id); });
-  $$("#promptGrid [data-copy]").forEach(b => b.onclick = (e) => {
-    e.stopPropagation();
-    const im = state.images.find(x => String(x.civitai_image_id) === b.dataset.copy);
-    if (im) navigator.clipboard.writeText(im.positive_prompt || "").then(() => toast("Prompt copié ✓"));
-  });
-  const m = $("#promptMore"); if (m) m.innerHTML = (hasMore ? `<button class="btn ghost" id="moreBtn">Charger plus</button>` : "") + `<span class="faint" style="margin-left:14px">${state.images.length} affichées</span>`;
-  const mb = $("#moreBtn"); if (mb) mb.onclick = () => loadImages(false);
 }
 
 // ===================== DRAWER =====================
@@ -734,20 +669,25 @@ Events.graph.on('graph:connect', updateWfStats);
 Events.graph.on('graph:disconnect', updateWfStats);
 
 /* ---------------------------------------------------------------- App view */
+/**
+ * Remplit le <select> LoRA du Mode App à partir de l'index réel.
+ * L'API /api/lora-index expose le champ `base` (pas `base_model`), et les
+ * noms de famille ne sont pas normalises : « Flux.2 Klein 4B-base » et
+ * « Flux.2 Klein 4B » coexistent. On filtre donc par famille normalisee.
+ */
 function populateAppLoras() {
   const sel = $("#appLora");
   if (!sel) return;
   const model = $("#appModel")?.value || "";
-  let base = "SDXL";
-  if (model.includes("flux2") || model.includes("klein")) base = "Flux.2 Klein 4B-base";
-  else if (model.includes("flux1")) base = "Flux.1 D";
-  else if (model.includes("sd15")) base = "SD 1.5";
-  else base = "SDXL";
+  const fam = /flux2|klein/.test(model) ? "flux2"
+            : /flux1/.test(model) ? "flux1"
+            : /sd15|sd1\.5/.test(model) ? "sd15"
+            : "sdxl";
   const norm = (b) => (b || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const gb = norm(base);
-  const opts = (window.LoraIndex?.items || LoraIndex?.items || [])
-    .filter(l => !gb || norm(l.base_model).includes(gb.slice(0, 5)))
-    .slice(0, 60);
+  const items = LoraIndex?.items || [];
+  const opts = items
+    .filter(l => norm(l.base || l.base_model).includes(fam))
+    .slice(0, 80);
   sel.innerHTML = "<option value=''>Aucun</option>" +
     opts.map(l => `<option value="${esc(l.path)}">${esc(l.name)}</option>`).join("");
 }
@@ -904,7 +844,6 @@ async function boot() {
   try { getTemplate('sdxl-txt2img')?.build(); canvas.rebuildNodes(); } catch (e) { console.warn('[template]', e); }
 
   await Promise.allSettled([loadStats(), loadCategories()]);
-  await loadImages(true);
 
   // Détection VRAM faible au démarrage
   try {
