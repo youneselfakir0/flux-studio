@@ -248,3 +248,9 @@
 }
 .recent-item:hover { background: rgba(124,92,255,0.12); }
 .recent-empty { padding: 12px; color: #6b7280; font-size: 13px; text-align: center; }
+
+/* ---------- Groupes dans la barre laterale ---------- */
+.topnav-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.topnav-group { display: flex; align-items: center; gap: 6px; }
+.topnav-sep { width: 1px; height: 24px; background: var(--line, rgba(255,255,255,0.08)); margin: 0 4px; }
+.topnav-group--advanced { opacity: 0.85; }
