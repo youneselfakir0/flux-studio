@@ -3,6 +3,7 @@
 .drag-overlay {
   position: fixed; inset: 0;
   background: rgba(11, 13, 16, 0.78);
+  background-color: var(--surface, #13161c);
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
   display: flex; align-items: center; justify-content: center;
@@ -23,6 +24,7 @@
 .vision-backdrop {
   position: absolute; inset: 0;
   background: rgba(11, 13, 16, 0.55);
+  background-color: var(--surface, #13161c);
   backdrop-filter: blur(24px) saturate(1.3);
   -webkit-backdrop-filter: blur(24px) saturate(1.3);
   opacity: 0; transition: opacity 0.32s ease;
@@ -237,7 +239,7 @@
 .recent-dropdown {
   position: fixed; top: 62px; right: 16px; z-index: 9990;
   width: 360px; max-height: 320px; overflow-y: auto;
-  background: rgba(20,22,28,0.96); backdrop-filter: blur(16px);
+  background: rgba(20,22,28,0.96); background-color: var(--surface, #13161c); backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
   padding: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
@@ -267,3 +269,11 @@
 .app-preview-loading { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--muted, var(--muted)); }
 .app-preview-loading .spinner { width: 32px; height: 32px; border: 3px solid var(--line, rgba(255,255,255,0.08)); border-top-color: var(--primary, var(--primary)); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* motion enabled by default */
+}

@@ -101,6 +101,19 @@ The system pairs a geometric display font with a highly readable sans-serif for 
 - **Body** (400, 14px, 1.5): the standard reading size for prompts and descriptions.
 - **Label** (500, 11px, 1.4, uppercase): used for rail labels, metadata keys, and badge text.
 
+## Spacing
+
+Tokens (4px base) exposés dans `app.css` (`:root`) :
+
+- `--space-1`: 4px
+- `--space-2`: 8px
+- `--space-3`: 12px
+- `--space-4`: 16px
+- `--space-5`: 24px
+- `--space-6`: 32px
+- `--space-7`: 48px
+- `--space-8`: 64px
+
 ## Layout
 
 The layout follows a **Hub-and-Spoke** topology. The center is the "Active View" (App Mode or Editor), flanked by functional rails.

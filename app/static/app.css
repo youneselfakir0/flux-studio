@@ -81,6 +81,9 @@ body {
 h1, h2, h3, h4, .display { font-family: "Space Grotesk", Inter, sans-serif; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; }
 a { color: var(--primary); text-decoration: none; }
+.skip-link { position: absolute; top: -40px; left: 0; background: var(--primary); color: #fff; padding: 8px 12px; z-index: 1000; border-radius: var(--r-md); }
+.skip-link:focus { top: 8px; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 ::selection { background: rgba(124, 92, 255, .35); }
 
 /* Scrollbars */
@@ -91,7 +94,7 @@ a { color: var(--primary); text-decoration: none; }
 
 /* ============================ Layout 3 volets ============================ */
 .app { display: grid; grid-template-columns: var(--rail) 1fr; height: 100vh; }
-.app.with-right { grid-template-columns: var(--rail) 1fr var(--rail-right); }
+.app.with-right { grid-template-columns: 320px 1fr 280px; }
 
 .rail {
   background: linear-gradient(180deg, #131519, #0e1013);
@@ -143,6 +146,7 @@ a { color: var(--primary); text-decoration: none; }
   padding: 7px 12px; color: var(--muted); font-size: 12.5px;
 }
 .rail-search input { background: none; border: none; outline: none; color: var(--text); width: 100%; font: inherit; }
+.rail-search input:focus-visible { box-shadow: 0 0 0 3px var(--primary-soft); outline: none; }
 
 .rail-foot { margin-top: auto; padding: 12px 10px 4px; border-top: 1px solid var(--line-soft); font-size: 11px; color: var(--faint); display: grid; gap: 6px; }
 .rail-foot .row { display: flex; justify-content: space-between; }
@@ -165,6 +169,7 @@ a { color: var(--primary); text-decoration: none; }
   padding: 8px 15px; color: var(--muted);
 }
 .search input { background: none; border: none; outline: none; color: var(--text); width: 100%; font: inherit; }
+.search input:focus-visible { box-shadow: 0 0 0 3px var(--primary-soft); outline: none; }
 .search input::placeholder { color: var(--faint); }
 .spacer { flex: 1; }
 
@@ -427,3 +432,12 @@ input[type="range"]::-webkit-slider-runnable-track {
 .gen-box textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(124,92,255,.18); }
 .gen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .gen-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* motion enabled by default */
+}

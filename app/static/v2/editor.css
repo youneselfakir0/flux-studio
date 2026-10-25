@@ -27,7 +27,7 @@ body { overflow: hidden; }
 }
 
 .topnav {
-  height: 56px;
+  height: 62px;
   flex: none;
   display: flex;
   align-items: center;
@@ -68,7 +68,7 @@ body { overflow: hidden; }
 .view-content { flex: 1; overflow-y: auto; padding: 20px 24px 60px; }
 
 /* ===================== WORKFLOW VIEW ===================== */
-#view-workflow.active { display: grid; grid-template-columns: 280px 1fr 320px; }
+#view-workflow.active { display: grid; grid-template-columns: 320px 1fr 280px; }
 
 .panel-left {
   border-right: 1px solid var(--line);
@@ -103,7 +103,7 @@ body { overflow: hidden; }
   border-radius: var(--r-sm); padding: 8px 12px; color: var(--text); font: inherit; font-size: 13px;
   outline: none;
 }
-.palette-search:focus { border-color: var(--primary); }
+.palette-search:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
 
 .palette-categories {
   display: flex; flex-wrap: wrap; gap: 4px;
