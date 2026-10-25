@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Guide pas à pas : installer, configurer et utiliser Flux Studio avec ComfyUI.">
+  <meta name="theme-color" content="#0b0d10">
+  <title>Guide de démarrage — Flux Studio</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0d10; --surface:#13161c; --surface-2:#1a1e27; --line:rgba(255,255,255,.09); --text:#e2e2e6; --muted:#a19cad; --primary:#7c5cff; --accent:#00d8e6; --green:#10b981; --radius:16px; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text); font:16px/1.7 Inter,"Segoe UI",system-ui,sans-serif; }
+    a { color:#b8a9ff; } a:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+    .wrap { width:min(920px,calc(100% - 36px)); margin:0 auto; }
+    header { border-bottom:1px solid var(--line); background:var(--surface); }
+    nav { min-height:66px; display:flex; align-items:center; justify-content:space-between; gap:18px; }
+    .brand { color:var(--text); font-weight:700; text-decoration:none; } nav a { text-decoration:none; }
+    main { padding:56px 0 70px; } h1,h2,h3 { font-family:"Space Grotesk",Inter,sans-serif; line-height:1.2; letter-spacing:-.025em; }
+    h1 { font-size:clamp(34px,5vw,52px); margin:8px 0 14px; } h2 { margin:44px 0 14px; font-size:29px; } h3 { margin:22px 0 8px; font-size:20px; }
+    p,li { color:var(--muted); } li { margin:5px 0; } code,pre { font-family:"JetBrains Mono",Consolas,monospace; }
+    code { color:#d5caff; } pre { overflow:auto; padding:17px; border:1px solid var(--line); border-radius:12px; background:#080a0d; color:#d9d7e0; font-size:13px; line-height:1.6; }
+    figure { margin:22px 0; padding:8px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); }
+    figure img { display:block; width:100%; border-radius:10px; } figcaption { padding:10px 5px 3px; color:var(--muted); font-size:13px; }
+    .callout { margin:20px 0; padding:16px 18px; border:1px solid rgba(0,216,230,.2); border-radius:12px; background:rgba(0,216,230,.05); }
+    .callout p { margin:0; } .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .card { padding:18px; border:1px solid var(--line); border-radius:14px; background:var(--surface); } .card h3 { margin:0 0 6px; } .card p { margin:0; font-size:14px; }
+    footer { padding:24px 0; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+    @media(max-width:620px) { .grid { grid-template-columns:1fr; } main { padding-top:36px; } h2 { margin-top:34px; } }
+  </style>
+</head>
+<body>
+  <header><nav class="wrap" aria-label="Navigation"><a class="brand" href="./">Flux Studio</a><a href="./">← Présentation du projet</a></nav></header>
+  <main class="wrap">
+    <div style="color:var(--accent);font:600 12px 'JetBrains Mono',Consolas,monospace;letter-spacing:.12em;text-transform:uppercase">Guide pratique</div>
+    <h1>Installer et utiliser Flux Studio</h1>
+    <p>Suivez ces étapes pour relier le studio web local au serveur ComfyUI. Les commandes ci-dessous sont prévues pour Windows PowerShell.</p>
+
+    <h2 id="architecture">1. Comprendre les composants</h2>
+    <div class="grid">
+      <article class="card"><h3>Interface</h3><p>Application web monopage en JavaScript ES modules, sans framework. Elle contient les vues App, Workflow, Gallery, Models, Prompts, Canvas, ComfyUI et Matériel.</p></article>
+      <article class="card"><h3>Serveur Flux Studio</h3><p>Serveur Python standard-library sur le port 8080. Il sert l’interface et expose l’API locale, SQLite, les téléchargements et les intégrations.</p></article>
+      <article class="card"><h3>ComfyUI</h3><p>Moteur de génération indépendant, habituellement sur 127.0.0.1:8188. Les graphes Flux Studio sont traduits et soumis à son endpoint /prompt.</p></article>
+      <article class="card"><h3>Données locales</h3><p>SQLite pour le catalogue d’images et modèles, IndexedDB dans le navigateur pour workflows/préférences, et fichiers JSON pour la configuration et l’index LoRA.</p></article>
+    </div>
+    <div class="callout"><p>Flux Studio s’inscrit aussi dans une démarche d’apprentissage de l’IA appliquée au soutien informatique : explorer des intégrations solides et mieux comprendre les connexions entre outils. Les sujets comme les connecteurs, les protocoles d’outils (dont MCP) et leur orchestration en équipe restent des pistes d’exploration, et non des fonctions annoncées dans l’application.</p></div>
+
+    <h2 id="installation">2. Installer et configurer</h2>
+    <ol>
+      <li>Installez Python 3.11 ou une version ultérieure et ComfyUI sur l’ordinateur qui exécutera les générations.</li>
+      <li>Clonez le dépôt Flux Studio et placez-vous dans le dossier du projet.</li>
+    </ol>
+    <pre><code>git clone https://github.com/youneselfakir0/flux-studio.git
+cd flux-studio</code></pre>
+    <ol start="3">
+      <li>Copiez <code>.env.example</code> vers <code>.env</code>. Adaptez <code>COMFYUI_ROOT</code> si ComfyUI n’est pas dans le chemin par défaut. Les clés d’intégration sont optionnelles; gardez-les uniquement dans le fichier local .env.</li>
+      <li>Démarrez ComfyUI en local. Le chemin Python de l’environnement virtuel dépend de votre installation.</li>
+    </ol>
+    <pre><code>cd C:\chemin\vers\ComfyUI
+.\.venv\Scripts\python.exe main.py --listen 127.0.0.1 --port 8188</code></pre>
+    <ol start="5"><li>Dans un second terminal, depuis la racine Flux Studio, lancez le backend.</li></ol>
+    <pre><code>python app\server.py</code></pre>
+    <ol start="6"><li>Ouvrez <code>http://127.0.0.1:8080</code>. Vérifiez que les modèles attendus sont installés et chargés dans ComfyUI.</li></ol>
+    <div class="callout"><p>Par défaut, le serveur est lié à localhost. Ne remplacez pas cette adresse par une écoute publique sans architecture de sécurité dédiée : l’application n’a pas de système d’authentification.</p></div>
+
+    <h2 id="app">3. Faire une première génération (mode App)</h2>
+    <ol>
+      <li>Ouvrez l’onglet <b>App</b>, puis sélectionnez un modèle disponible sur votre installation.</li>
+      <li>Renseignez un prompt positif et, si le modèle l’utilise, un prompt négatif.</li>
+      <li>Choisissez largeur, hauteur, nombre d’étapes, CFG, seed et LoRA. Un seed vide est généré aléatoirement.</li>
+      <li>Cliquez <b>Générer</b>. L’interface construit le workflow correspondant et l’envoie à ComfyUI.</li>
+      <li>Consultez le résultat dans la carte qui apparaît sous les paramètres. Les tâches et erreurs ComfyUI sont consultables depuis Gallery.</li>
+    </ol>
+    <figure><img src="assets/app.png" alt="Interface de génération simple"><figcaption>Mode App : réglages essentiels à portée de main.</figcaption></figure>
+
+    <h2 id="workflow">4. Construire un workflow nodal</h2>
+    <ol>
+      <li>Ouvrez l’onglet <b>Workflow</b>. La colonne gauche contient les workflows prêts, les mots-clés LoRA et le catalogue de nœuds.</li>
+      <li>Choisissez un workflow prêt à l’emploi ou faites glisser les nœuds sur le canevas.</li>
+      <li>Reliez les ports compatibles, puis sélectionnez un nœud pour modifier ses champs dans l’inspecteur.</li>
+      <li>Utilisez Ctrl+K pour rechercher une LoRA, Ctrl+Z pour annuler et Ctrl+S pour enregistrer.</li>
+      <li>Utilisez <b>Valider le workflow</b> pour vérifier sa compatibilité ComfyUI; lancez-le ensuite avec <b>Run</b> ou Ctrl+Entrée.</li>
+    </ol>
+    <div class="callout"><p>La validation distante envoie un prompt de test à ComfyUI puis tente de le retirer de la file. Elle n’interrompt pas volontairement les autres tâches; si le nettoyage n’est pas confirmé, l’interface l’indique.</p></div>
+    <figure><img src="assets/workflow.png" alt="Éditeur nodal et workflow connecté"><figcaption>Mode Workflow : catalogue, canevas nodal et inspecteur.</figcaption></figure>
+
+    <h2 id="outils">5. Découvrir les autres vues</h2>
+    <ul>
+      <li><b>Gallery</b> : parcourir les images/prompt présents dans la base et suivre les générations.</li>
+      <li><b>Models</b> : inspecter les modèles ComfyUI et, si Civitai est configuré, rechercher et télécharger des fichiers.</li>
+      <li><b>Prompts</b> : filtrer les exemples importés depuis le catalogue SQLite.</li>
+      <li><b>Canvas</b> : ouvrir l’éditeur d’image intégré.</li>
+      <li><b>ComfyUI</b> et <b>Matériel</b> : vérifier les modèles installés, les téléchargements et les informations locales.</li>
+      <li><b>Outils</b> : accéder à la prévalidation, au préchargement, aux prompts récents, aux suggestions LoRA et à la libération de mémoire.</li>
+    </ul>
+
+    <h2 id="tests">6. Lancer les tests sans GPU</h2>
+    <p>Les tests automatisés couvrent l’API, SQLite, la configuration, les intégrations mockées et la sérialisation de graphes. Ils n’exécutent pas de génération GPU.</p>
+    <pre><code>python -m unittest discover -s tests -v
+node --test tests_js\graph.test.mjs
+python -m compileall -q app tests</code></pre>
+
+    <h2 id="pannes">7. Diagnostiquer les problèmes usuels</h2>
+    <div class="grid">
+      <article class="card"><h3>ComfyUI indisponible</h3><p>Vérifiez que ComfyUI tourne sur l’URL configurée et testez <code>http://127.0.0.1:8188/object_info</code>. Le serveur Flux Studio doit rester actif séparément.</p></article>
+      <article class="card"><h3>Modèle absent ou valeur refusée</h3><p>Installez le modèle requis et rescanez. Les menus sont renseignés par ComfyUI; les noms des modèles doivent correspondre exactement.</p></article>
+      <article class="card"><h3>Génération en erreur</h3><p>Ouvrez le détail d’exécution et vérifiez le nœud/champ refusé, le modèle sélectionné, la VRAM disponible et les logs ComfyUI.</p></article>
+      <article class="card"><h3>Fonction Civitai/vision désactivée</h3><p>Ajoutez le token Civitai ou la clé Gemini au fichier .env local si nécessaire, puis redémarrez le backend. Ne publiez jamais ces secrets.</p></article>
+    </div>
+
+    <h2 id="hebergement">Hébergement du backend : prérequis</h2>
+    <p>La page GitHub Pages est un site de documentation statique. Pour utiliser Flux Studio à distance, votre serveur doit aussi héberger le backend, ComfyUI, les modèles, la base et les données persistantes. L’application actuelle est mono-utilisateur locale, sans authentification; l’exposer directement sur Internet n’est pas sûr. Il faut d’abord préciser le système d’exploitation et l’accès réseau du serveur, puis choisir une protection (au minimum TLS, authentification devant l’application et pare-feu/VPN) et configurer le stockage GPU de façon durable.</p>
+    <div class="callout"><p>Ne mettez pas <code>.env</code>, les tokens API, la base SQLite personnelle, l’index privé ou les modèles dans le site public GitHub Pages.</p></div>
+  </main>
+  <footer><div class="wrap"><a href="./">← Présentation Flux Studio</a> · <a href="https://github.com/youneselfakir0/flux-studio">Dépôt GitHub</a></div></footer>
+</body>
+</html>
