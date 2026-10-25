@@ -69,11 +69,17 @@ $$("#nsfwSeg button").forEach(b => b.onclick = () => {
   loadImages(true);
 });
 
-$$(".chip[data-men]").forEach(c => c.onclick = () => {
-  $$(".chip[data-men]").forEach(x => x.classList.remove("on"));
-  c.classList.add("on");
-  state.men = c.dataset.men;
-  loadImages(true);
+$$(".chip[data-men]").forEach(c => {
+  const act = () => {
+    $$(".chip[data-men]").forEach(x => x.classList.remove("on"));
+    c.classList.add("on");
+    state.men = c.dataset.men;
+    loadImages(true);
+  };
+  c.setAttribute("role","button");
+  c.setAttribute("tabindex","0");
+  c.onclick = act;
+  c.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } };
 });
 
 /* ============================ PROMPTS ============================ */
@@ -101,27 +107,37 @@ async function loadCategories() {
   $("#civBase").innerHTML = '<option value="">Toutes bases</option>' + bases.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join("");
   $("#baseList").innerHTML = bases.map(b => {
     const col = baseColor(b);
-    return `<div class="base-chip" data-base="${esc(b)}" style="--bc:${col}">
+    return `<div class="base-chip" role="button" tabindex="0" data-base="${esc(b)}" style="--bc:${col}">
       <span class="dot" style="background:${col};color:${col}"></span>
       ${esc(b)}
       <span class="count">${esc((c.base_counts && c.base_counts[b]) || "")}</span>
     </div>`;
   }).join("");
-  $$("#baseList .base-chip").forEach(n => n.onclick = () => {
-    go("prompts");
-    state.base = (n.dataset.base === state.base) ? "" : n.dataset.base;
-    $("#fBase").value = state.base;
-    $$("#baseList .base-chip").forEach(x => x.classList.toggle("on", x.dataset.base === state.base));
-    loadImages(true);
+  $$("#baseList .base-chip").forEach(n => {
+    const act = () => {
+      go("prompts");
+      state.base = (n.dataset.base === state.base) ? "" : n.dataset.base;
+      $("#fBase").value = state.base;
+      $$("#baseList .base-chip").forEach(x => x.classList.toggle("on", x.dataset.base === state.base));
+      loadImages(true);
+    };
+    n.onclick = act;
+    n.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } };
   });
   // Tags populaires
   const tags = (c.tags || []).slice(0, 14);
   $("#tagCloud").innerHTML = tags.map(t => `<span class="chip" data-tag="${esc(t)}">${esc(t)}</span>`).join("");
-  $$("#tagCloud .chip").forEach(n => n.onclick = () => {
-    go("prompts");
-    state.tag = (n.dataset.tag === state.tag) ? "" : n.dataset.tag;
-    $("#fTag").value = state.tag;
-    loadImages(true);
+  $$("#tagCloud .chip").forEach(n => {
+    n.setAttribute("role","button");
+    n.setAttribute("tabindex","0");
+    const act = () => {
+      go("prompts");
+      state.tag = (n.dataset.tag === state.tag) ? "" : n.dataset.tag;
+      $("#fTag").value = state.tag;
+      loadImages(true);
+    };
+    n.onclick = act;
+    n.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } };
   });
 }
 
@@ -202,7 +218,7 @@ function cardHTML(im) {
     ? `<div class="ph" style="font-size:26px">▶</div>`
     : (url ? `<img loading="lazy" src="${esc(url)}" onerror="${fallback}">` : `<div class="ph">▣</div>`);
   return `
-  <article class="card" data-id="${esc(im.civitai_image_id)}">
+  <article class="card" role="button" tabindex="0" data-id="${esc(im.civitai_image_id)}">
     <div class="thumb ${lvl > 1 ? "nsfw" : ""}">
       ${pic}
       <div class="badges">
@@ -399,7 +415,7 @@ function renderCivitaiResults() {
   const box = $("#civResults");
   const rows = comfy.searchRows;
   box.innerHTML = rows.map((m, i) => `
-    <div class="list-item">
+    <div class="list-item" role="button" tabindex="0">
       ${(m.thumbnail && !isVideo(m.thumbnail))
         ? `<img class="tb" loading="lazy" src="${esc(thumb(m.thumbnail))}" onerror="this.style.visibility='hidden'">`
         : `<div class="tb" style="display:grid;place-items:center;font-size:20px">${m.thumbnail ? "▶" : "▣"}</div>`}
@@ -445,7 +461,7 @@ async function loadDownloads() {
   el.innerHTML = list.map(d => {
     const pct = d.total_bytes ? Math.round(100 * d.downloaded_bytes / d.total_bytes) : 0;
     const [label, cls] = DL_STATUS[d.status] || [d.status || "?", "soft"];
-    return `<div class="list-item" style="align-items:flex-start;flex-direction:column;gap:8px">
+    return `<div class="list-item" role="button" tabindex="0" style="align-items:flex-start;flex-direction:column;gap:8px">
       <div class="row" style="width:100%"><b class="grow">${esc(d.name || d.filename || d.id)}</b>
         <span class="badge ${cls}">${esc(label)}</span></div>
       <div style="width:100%"><div class="progress"><i style="width:${pct}%"></i></div></div>
@@ -600,12 +616,12 @@ function renderHistory() {
   if (!histItems.length) { el.innerHTML = `<div class="faint" style="font-size:11.5px">Ouvrez un prompt pour remplir l'historique.</div>`; return; }
   el.innerHTML = histItems.map(h => {
     const u = thumb(h.url);
-    return `<div class="hist-item" data-id="${esc(h.civitai_image_id)}">
+    return `<div class="hist-item" role="button" tabindex="0" data-id="${esc(h.civitai_image_id)}">
       ${u ? `<img class="tb" loading="lazy" src="${esc(u)}" onerror="this.style.visibility='hidden'">` : `<div class="tb" style="display:grid;place-items:center;font-size:16px">▶</div>`}
       <div class="g"><b>${esc(h.model_name || "—")}</b><small>${esc(h.base_model || "")}</small></div>
     </div>`;
   }).join("");
-  $$("#histList .hist-item").forEach(n => n.onclick = () => openDrawer(n.dataset.id));
+  $$("#histList .hist-item").forEach(n => { n.onclick = () => openDrawer(n.dataset.id); n.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDrawer(n.dataset.id); } }; });
 }
 function renderRecent() {
   const el = $("#recentList");
@@ -613,12 +629,12 @@ function renderRecent() {
   const rows = state.images.slice(0, 8);
   el.innerHTML = rows.map(h => {
     const u = thumb(h.url);
-    return `<div class="hist-item" data-id="${esc(h.civitai_image_id)}">
+    return `<div class="hist-item" role="button" tabindex="0" data-id="${esc(h.civitai_image_id)}">
       ${u ? `<img class="tb" loading="lazy" src="${esc(u)}" onerror="this.style.visibility='hidden'">` : `<div class="tb" style="display:grid;place-items:center;font-size:16px">▶</div>`}
       <div class="g"><b>${esc(h.model_name || "—")}</b><small>${esc(h.base_model || "")}</small></div>
     </div>`;
   }).join("");
-  $$("#recentList .hist-item").forEach(n => n.onclick = () => openDrawer(n.dataset.id));
+  $$("#recentList .hist-item").forEach(n => { n.onclick = () => openDrawer(n.dataset.id); n.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDrawer(n.dataset.id); } }; });
 }
 
 /* ============================ Mini-générateur ============================ */

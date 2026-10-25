@@ -68,7 +68,7 @@ export class QuickStartPanel {
     this.listEl.innerHTML = list.map(w => {
       const chk = checkAvailable(w, this.models);
       return `
-        <div class="qs-card ${chk.ok ? '' : 'unavailable'}" data-id="${w.id}">
+        <div class="qs-card ${chk.ok ? '' : 'unavailable'}" role="button" tabindex="0" data-id="${w.id}">
           <div class="qs-icon">${w.icon || '◈'}</div>
           <div class="qs-body">
             <div class="qs-name">

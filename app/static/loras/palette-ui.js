@@ -34,6 +34,9 @@ export class LoraPalette {
     if (this.el) return;
     const wrap = document.createElement('div');
     wrap.className = 'lora-palette';
+    wrap.setAttribute('role','dialog');
+    wrap.setAttribute('aria-modal','true');
+    wrap.setAttribute('aria-label','Palette LoRA');
     wrap.style.display = 'none';
     wrap.innerHTML = `
       <div class="lp-scrim"></div>
@@ -119,7 +122,7 @@ export class LoraPalette {
         ? `<img class="lp-prev" loading="lazy" alt="" src="/api/lora-preview?path=${encodeURIComponent(r.webPath || r.path)}">`
         : '';
       return `
-        <div class="lp-row ${i === this.selected ? 'sel' : ''}" data-i="${i}">
+        <div class="lp-row ${i === this.selected ? 'sel' : ''}" role="button" tabindex="0" data-i="${i}">
           ${prev}
           <div class="lp-info">
             <div class="lp-name">${esc(r.display || r.name)}</div>
@@ -185,3 +188,11 @@ export function initLoraPalette() {
   if (!instance) instance = new LoraPalette();
   return instance;
 }
+
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const el = document.querySelector('.lora-palette');
+    if (el && el.style.display !== 'none') { el.style.display = 'none'; }
+  }
+});

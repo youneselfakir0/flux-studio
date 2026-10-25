@@ -13,7 +13,7 @@ colors:
   text: "#e2e2e6"
   text-dim: "#c9c4d8"
   muted: "#8b8794"
-  faint: "#5d5a67"
+  faint: "#7e7b88"
   outline: "#938ea1"
   outline-variant: "#484555"
 rounded:
@@ -22,9 +22,14 @@ rounded:
   lg: "14px"
   xl: "18px"
 spacing:
+  xs: "4px"
   sm: "8px"
-  md: "16px"
-  lg: "24px"
+  md: "12px"
+  lg: "16px"
+  xl: "24px"
+  2xl: "32px"
+  3xl: "48px"
+  4xl: "64px"
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
@@ -72,7 +77,7 @@ The palette uses a deep obsidian base with luminous accents to create a professi
 - **Surface-Deep** (#1a1e27 / #222733): Layered depth for rails and nested panels.
 - **Text** (#e2e2e6): High-contrast primary text.
 - **Text-Dim** (#c9c4d8): Secondary labels and metadata.
-- **Muted/Faint** (#8b8794 / #5d5a67): Disabled or low-priority hints.
+- **Muted/Faint** (#8b8794 / #7e7b88): Disabled or low-priority hints.
 
 ### NSFW Labels
 - **None** (#10b981): Safe content.

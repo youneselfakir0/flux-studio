@@ -20,7 +20,7 @@
   --text: #e2e2e6;
   --text-dim: #c9c4d8;
   --muted: #8b8794;
-  --faint: #5d5a67;
+  --faint: #7e7b88;
 
   /* Accents — violet électrique + cyan néon */
   --primary: #7c5cff;
@@ -33,7 +33,7 @@
   --error: #ffb4ab;
 
   /* NSFW */
-  --nsfw-none: #10b981;
+  --nsfw-none: var(--tertiary);
   --nsfw-soft: #f59e0b;
   --nsfw-mature: #f97316;
   --nsfw-x: #e11d48;
@@ -54,6 +54,16 @@
   --rail: 320px;
   --rail-right: 280px;
   --topbar: 62px;
+
+  /* Spacing ramp (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
 }
 
 * { box-sizing: border-box; }
@@ -68,7 +78,7 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
-h1, h2, h3, h4, .display { font-family: "Sora", "DM Sans", sans-serif; font-weight: 600; letter-spacing: -.01em; margin: 0; }
+h1, h2, h3, h4, .display { font-family: "Space Grotesk", Inter, sans-serif; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; }
 a { color: var(--primary); text-decoration: none; }
 ::selection { background: rgba(124, 92, 255, .35); }
@@ -96,9 +106,9 @@ a { color: var(--primary); text-decoration: none; }
   box-shadow: var(--glow);
 }
 .brand b { font-family: "Space Grotesk"; font-size: 15px; letter-spacing: -.02em; }
-.brand span { display: block; font-size: 10px; color: var(--faint); letter-spacing: .14em; text-transform: uppercase; }
+.brand span { display: block; font-size: 11px; color: var(--faint); letter-spacing: .14em; text-transform: uppercase; }
 
-.nav-label { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); padding: 14px 10px 6px; }
+.nav-label { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); padding: 14px 10px 6px; }
 .nav-item {
   display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: var(--r-md);
   color: var(--text-dim); cursor: pointer; border: 1px solid transparent; user-select: none;
@@ -121,7 +131,7 @@ a { color: var(--primary); text-decoration: none; }
 .base-chip:hover { background: var(--surface-2); color: var(--text); }
 .base-chip.on { background: var(--surface-2); color: #fff; border-color: var(--line); }
 .base-chip.on .dot { box-shadow: 0 0 10px currentColor; }
-.base-chip .count { margin-left: auto; font-size: 10.5px; color: var(--faint); }
+.base-chip .count { margin-left: auto; font-size: 11px; color: var(--faint); }
 
 /* Tags populaires */
 .tag-cloud { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 6px; }
@@ -167,7 +177,13 @@ a { color: var(--primary); text-decoration: none; }
 .segmented button.on { background: var(--primary-soft); color: #fff; border: 1px solid var(--primary-line); }
 
 .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; color: var(--muted); font-size: 12.5px; }
-.switch input { display: none; }
+/* Visually hidden but focusable + accessible */
+.switch input {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.switch input:focus-visible + .track { box-shadow: 0 0 0 3px var(--primary-soft); outline: 2px solid var(--primary); outline-offset: 2px; }
+.switch:focus-within .track { box-shadow: 0 0 0 3px var(--primary-soft); }
 .switch .track { width: 40px; height: 22px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--line); position: relative; transition: .18s; }
 .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: .18s; }
 .switch input:checked + .track { background: rgba(16,185,129,.22); border-color: rgba(16,185,129,.45); }
@@ -199,7 +215,7 @@ a { color: var(--primary); text-decoration: none; }
 
 /* Badges NSFW — pastille circulaire 6px luminescente */
 .badge {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
   letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: var(--r-full);
   font-family: "JetBrains Mono", monospace; letter-spacing: .05em;
 }
@@ -265,7 +281,7 @@ body.safe .card .thumb.nsfw:hover::after { display: none; }
 .hist-item .tb { width: 44px; height: 56px; border-radius: var(--r-sm); object-fit: cover; background: var(--surface-3); flex: none; }
 .hist-item .g { flex: 1; min-width: 0; }
 .hist-item .g b { font-size: 12px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hist-item .g small { color: var(--muted); font-size: 10.5px; }
+.hist-item .g small { color: var(--muted); font-size: 11px; }
 
 /* ============================ Sliders custom ============================ */
 .slider-row { margin-bottom: 14px; }
@@ -303,7 +319,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 
 .table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .table th {
-  text-align: left; font-weight: 600; color: var(--faint); font-size: 10.5px; letter-spacing: .1em;
+  text-align: left; font-weight: 600; color: var(--faint); font-size: 11px; letter-spacing: .1em;
   text-transform: uppercase; padding: 9px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg);
 }
 .table td { padding: 9px 12px; border-bottom: 1px solid var(--line-soft); color: var(--text-dim); }
@@ -354,7 +370,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 .codebox.mono { font-family: "JetBrains Mono"; font-size: 12px; }
 .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 .kv .item { background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: var(--r-md); padding: 9px 11px; }
-.kv .item .k { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
+.kv .item .k { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
 .kv .item .v { font-family: "JetBrains Mono"; font-size: 13px; margin-top: 2px; }
 
 /* ============================ Drop zone ============================ */

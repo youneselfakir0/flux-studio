@@ -222,7 +222,7 @@ async function loadCategories() {
 // ===================== DRAWER =====================
 let histItems = [];
 async function openDrawer(id) {
-  $("#drawer").classList.add("on"); $("#scrim").classList.add("on");
+  $("#drawer").classList.add("on"); $("#scrim").classList.add("on"); $("#drawer").setAttribute("aria-hidden","false"); try{$("#drawerClose").focus();}catch(e){}
   $("#drawer .db").innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto"></div></div>`;
   let im;
   try { im = await api.image(id); } catch { $("#drawer .db").innerHTML = `<div class="empty">Erreur</div>`; return; }
@@ -251,12 +251,14 @@ function renderHistory() {
   el.innerHTML = histItems.map(h => `<div class="hist-item" data-id="${esc(h.id)}"><div class="tb">▣</div><div class="g"><b>${esc(h.name || "—")}</b><small>${esc(h.base || "")}</small></div></div>`).join("");
   $$("#histList .hist-item").forEach(n => n.onclick = () => openDrawer(n.dataset.id));
 }
-$("#drawerClose").onclick = () => { $("#drawer").classList.remove("on"); $("#scrim").classList.remove("on"); };
+$("#drawerClose").onclick = () => { $("#drawer").classList.remove("on"); $("#scrim").classList.remove("on"); $("#drawer").setAttribute("aria-hidden","true"); };
+trapFocus($("#drawer"));
 $("#scrim").onclick = () => { $("#drawer").classList.remove("on"); $("#scrim").classList.remove("on"); };
 
 // ===================== MINI-GENERATOR =====================
-$("#genBtn")?.addEventListener("click", () => $("#genModal").classList.add("on"));
-$("#genCancel")?.addEventListener("click", () => $("#genModal").classList.remove("on"));
+$("#genBtn")?.addEventListener("click", () => { $("#genModal").classList.add("on"); $("#genModal").setAttribute("aria-hidden","false"); try{$("#genCancel").focus();}catch(e){} });
+$("#genCancel")?.addEventListener("click", () => { $("#genModal").classList.remove("on"); $("#genModal").setAttribute("aria-hidden","true"); });
+trapFocus($("#genModal"));
 $("#genSteps")?.addEventListener("input", (e) => $("#genStepsV").textContent = e.target.value);
 $("#genCfg")?.addEventListener("input", (e) => $("#genCfgV").textContent = (+e.target.value).toFixed(1));
 $("#genRun")?.addEventListener("click", async () => {
@@ -313,15 +315,19 @@ $("#recentPromptsBtn")?.addEventListener("click", async () => {
     const dd = $("#recentPromptsDropdown");
     if (!dd) return;
     if (!list.length) { dd.innerHTML = "<div class='recent-empty'>Aucun prompt récent</div>"; dd.style.display="block"; return; }
-    dd.innerHTML = list.map(p => `<div class="recent-item" data-text="${esc(p.text)}">${esc((p.text||"").slice(0,80))}</div>`).join("");
+    dd.innerHTML = list.map(p => `<div class="recent-item" role="button" tabindex="0" data-text="${esc(p.text)}">${esc((p.text||"").slice(0,80))}</div>`).join("");
     dd.style.display = "block";
-    dd.querySelectorAll(".recent-item").forEach(it => it.addEventListener("click", () => {
-      const t = it.dataset.text;
-      const ta = document.querySelector("#visionPrompt") || document.querySelector("textarea.widget-input");
-      if (ta) ta.value = t;
-      try { navigator.clipboard.writeText(t); toast("Prompt copié"); } catch {}
-      dd.style.display = "none";
-    }));
+    dd.querySelectorAll(".recent-item").forEach(it => {
+      const act = () => {
+        const t = it.dataset.text;
+        const ta = document.querySelector("#visionPrompt") || document.querySelector("textarea.widget-input");
+        if (ta) ta.value = t;
+        try { navigator.clipboard.writeText(t); toast("Prompt copié"); } catch {}
+        dd.style.display = "none";
+      };
+      it.addEventListener("click", act);
+      it.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } };
+    });
   } catch(e) { toast("Erreur : " + e.message, "error"); }
 });
 document.addEventListener("click", e => {
@@ -892,3 +898,29 @@ async function boot() {
 }
 
 boot();
+
+
+// ===== Accessibilité : Escape ferme les dialogues =====
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const drawer = $("#drawer");
+  if (drawer && drawer.classList.contains("on")) { drawer.classList.remove("on"); $("#scrim")?.classList.remove("on"); drawer.setAttribute("aria-hidden","true"); return; }
+  const gm = $("#genModal");
+  if (gm && gm.classList.contains("on")) { gm.classList.remove("on"); gm.setAttribute("aria-hidden","true"); return; }
+  const vs = $("#visionSheet");
+  if (vs) { vs.remove(); return; }
+});
+
+
+function trapFocus(container) {
+  if (!container) return;
+  container.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const focusables = container.querySelectorAll('a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])');
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+}

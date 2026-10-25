@@ -205,7 +205,7 @@ export class Palette {
   renderItem(node) {
     const isFav = this.favorites.value.includes(node.type);
     return `
-      <div class="palette-item" data-type="${node.type}" title="${node.description || ''}">
+      <div class="palette-item" role="button" tabindex="0" data-type="${node.type}" title="${node.description || ''}">
         <span class="fav-btn ${isFav ? 'active' : ''}" title="Toggle favorite">★</span>
         <span class="node-type">${node.type}</span>
         <span class="node-title">${node.title}</span>

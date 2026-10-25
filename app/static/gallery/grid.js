@@ -317,7 +317,7 @@ export class Gallery {
     const thumb = item.url ? `/api/proxy?url=${encodeURIComponent(item.url)}` : '';
     
     return `
-      <div class="gallery-item ${selected ? 'selected' : ''} ${nsfw ? 'nsfw' : ''}" data-id="${id}" tabindex="0">
+      <div class="gallery-item ${selected ? 'selected' : ''} ${nsfw ? 'nsfw' : ''}" role="button" tabindex="0" data-id="${id}">
         <div class="gallery-thumb">
           ${thumb ? `<img loading="lazy" src="${thumb}" alt="">` : '<div class="placeholder">▣</div>'}
           ${nsfw ? '<span class="nsfw-badge">NSFW</span>' : ''}
@@ -417,6 +417,9 @@ export class GalleryViewer {
     
     this.el = document.createElement('div');
     this.el.className = 'gallery-viewer';
+    this.el.setAttribute('role','dialog');
+    this.el.setAttribute('aria-modal','true');
+    this.el.setAttribute("aria-label","Visionneuse d'image");
     this.el.innerHTML = `
       <div class="viewer-overlay"></div>
       <div class="viewer-container">
@@ -577,11 +580,14 @@ export class GalleryQueue {
   open() {
     this.el = document.createElement('div');
     this.el.className = 'gallery-queue-modal';
+    this.el.setAttribute('role', 'dialog');
+    this.el.setAttribute('aria-modal', 'true');
+    this.el.setAttribute('aria-labelledby', 'queueTitle');
     this.el.innerHTML = `
       <div class="queue-overlay"></div>
       <div class="queue-panel">
         <div class="queue-header">
-          <h3>Generation Queue</h3>
+          <h3 id="queueTitle">Generation Queue</h3>
           <button class="queue-close">✕</button>
         </div>
         <div class="queue-list"></div>

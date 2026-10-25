@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Flux Studio v2 — Nodal AI Studio</title>
+<!-- Polices chargées depuis Google Fonts (dépendance réseau). Pour self-hoster, voir docs/ (M9). -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/v2/editor.css">
 <link rel="stylesheet" href="/v2/prompts/prompt_tab.css">
@@ -192,15 +193,15 @@
             <select id="fType"><option value="">Tous types</option></select>
             <select id="fTag"><option value="">Tous tags</option></select>
             <span class="sep"></span>
-            <span class="chip on" data-men="only">♀ Femmes seulement</span>
-            <span class="chip" data-men="0">✕ Sans hommes</span>
-            <span class="chip" data-men="">Tout</span>
+            <span class="chip on" role="button" tabindex="0" data-men="only">♀ Femmes seulement</span>
+            <span class="chip" role="button" tabindex="0" data-men="0">✕ Sans hommes</span>
+            <span class="chip" role="button" tabindex="0" data-men="">Tout</span>
           </div>
           <div id="promptGrid" class="grid"></div>
           <div id="promptMore" class="center mt"></div>
         </div>
         <aside class="prompts-right">
-          <h4>Historique</h4>
+          <h3>Historique</h3>
           <div id="histList"></div>
         </aside>
       </div>
@@ -292,7 +293,7 @@
 </div>
 
 <!-- ===================== DRAWER ===================== -->
-<aside id="drawer" class="drawer">
+<aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
   <div class="dh">
     <h3 id="drawerTitle" style="flex:1;font-size:15px">Détail</h3>
     <button class="btn icon ghost" id="drawerClose">✕</button>
@@ -320,9 +321,9 @@
 </div>
 
 <!-- ===================== MINI-GENERATOR MODAL ===================== -->
-<div class="gen-modal" id="genModal">
+<div class="gen-modal" id="genModal" role="dialog" aria-modal="true" aria-labelledby="genModalTitle">
   <div class="gen-box">
-    <h3>✦ Générer une image</h3>
+    <h3 id="genModalTitle">✦ Générer une image</h3>
     <textarea id="genPrompt" placeholder="Prompt positif — décrivez la femme, l'éclairage, le style…"></textarea>
     <div class="gen-grid">
       <div class="slider-row">

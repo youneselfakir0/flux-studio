@@ -1,7 +1,7 @@
 /* ==========================================================================
    Flux Studio v2 — Prompt Studio
    Design system : « Dark Studio Pro » (voir DESIGN.md)
-   Obsidienne #0b0d10 · Violet électrique #7c5cff · Cyan néon #00f0ff
+   Obsidienne var(--bg) · Violet électrique var(--primary) · Cyan néon var(--accent)
    Tout est scopé sous .prompt-studio pour éviter toute collision.
    ========================================================================== */
 
